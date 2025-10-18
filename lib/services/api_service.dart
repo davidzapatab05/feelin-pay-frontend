@@ -8,7 +8,10 @@ class ApiService {
   static const String baseUrl = AppConfig.apiBaseUrl;
 
   // Headers
-  Map<String, String> get _headers => AppConfig.defaultHeaders;
+  static const Map<String, String> _headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  };
 
   /// Obtener token almacenado
   Future<String?> getStoredToken() async {
@@ -42,14 +45,37 @@ class ApiService {
   /// Login
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
+      print('🔍 [API] Intentando login para: $email');
+      
+      final requestBody = {
+        'email': email.trim(),
+        'password': password,
+      };
+      
+      print('🔍 [API] Request body: $requestBody');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers,
-        body: jsonEncode({'email': email, 'password': password}),
+        body: jsonEncode(requestBody),
       );
 
-      return jsonDecode(response.body);
+      print('🔍 [API] Response status: ${response.statusCode}');
+      print('🔍 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('🔍 [API] Login exitoso');
+        return data;
+      } else {
+        print('❌ [API] Error en login: ${response.statusCode}');
+        return {
+          'success': false, 
+          'message': 'Error del servidor: ${response.statusCode}'
+        };
+      }
     } catch (e) {
+      print('❌ [API] Error en login: $e');
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
@@ -63,20 +89,40 @@ class ApiService {
     required String confirmPassword,
   }) async {
     try {
+      print('🔍 [API] Intentando registro para: $email');
+      
+      final requestBody = {
+        'nombre': nombre.trim(),
+        'telefono': telefono.trim(),
+        'email': email.trim(),
+        'password': password,
+        'confirmPassword': confirmPassword,
+      };
+      
+      print('🔍 [API] Request body: $requestBody');
+      
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: _headers,
-        body: jsonEncode({
-          'nombre': nombre,
-          'telefono': telefono,
-          'email': email,
-          'password': password,
-          'confirmPassword': confirmPassword,
-        }),
+        body: jsonEncode(requestBody),
       );
 
-      return jsonDecode(response.body);
+      print('🔍 [API] Response status: ${response.statusCode}');
+      print('🔍 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        print('🔍 [API] Registro exitoso');
+        return data;
+      } else {
+        print('❌ [API] Error en registro: ${response.statusCode}');
+        return {
+          'success': false, 
+          'message': 'Error del servidor: ${response.statusCode}'
+        };
+      }
     } catch (e) {
+      print('❌ [API] Error en registro: $e');
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
@@ -91,6 +137,43 @@ class ApiService {
 
       return jsonDecode(response.body);
     } catch (e) {
+      return {'success': false, 'message': 'Error de conexión: $e'};
+    }
+  }
+
+  /// Forgot Password
+  Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      print('🔍 [API] Intentando forgot password para: $email');
+      
+      final requestBody = {
+        'email': email.trim(),
+      };
+      
+      print('🔍 [API] Request body: $requestBody');
+      
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password'),
+        headers: _headers,
+        body: jsonEncode(requestBody),
+      );
+
+      print('🔍 [API] Response status: ${response.statusCode}');
+      print('🔍 [API] Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('🔍 [API] Forgot password exitoso');
+        return data;
+      } else {
+        print('❌ [API] Error en forgot password: ${response.statusCode}');
+        return {
+          'success': false, 
+          'message': 'Error del servidor: ${response.statusCode}'
+        };
+      }
+    } catch (e) {
+      print('❌ [API] Error en forgot password: $e');
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
   }
