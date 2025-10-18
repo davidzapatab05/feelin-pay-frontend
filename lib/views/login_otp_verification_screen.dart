@@ -85,7 +85,7 @@ class _LoginOTPVerificationScreenState
 
     try {
       final authController = context.read<AuthController>();
-      await authController.sendOTP(widget.email);
+      await authController.sendOTP(widget.email, 'LOGIN_VERIFICATION');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

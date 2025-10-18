@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/feelin_pay_service.dart';
-import '../utils/string_utils.dart';
+// StringUtils removed - using built-in string methods
 
 class PasswordRecoveryScreen extends StatefulWidget {
   const PasswordRecoveryScreen({super.key});
@@ -42,6 +42,18 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
         _onOtpDigitChanged(i);
       });
     }
+
+    // Listener para limpiar espacios del email en tiempo real
+    _emailController.addListener(() {
+      final text = _emailController.text;
+      final cleanedText = text.trim().toLowerCase();
+      if (text != cleanedText) {
+        _emailController.value = _emailController.value.copyWith(
+          text: cleanedText,
+          selection: TextSelection.collapsed(offset: cleanedText.length),
+        );
+      }
+    });
   }
 
   void _onOtpDigitChanged(int index) {
@@ -101,7 +113,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
 
     try {
       // Limpiar el email antes de enviarlo
-      final emailLimpio = StringUtils.cleanEmail(_emailController.text);
+      final emailLimpio = _emailController.text.trim().toLowerCase();
 
       // Actualizar el campo con el email limpio
       if (_emailController.text != emailLimpio) {
@@ -164,7 +176,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
 
     try {
       // Usar el email limpio
-      final emailLimpio = StringUtils.cleanEmail(_emailController.text);
+      final emailLimpio = _emailController.text.trim().toLowerCase();
 
       final result = await FeelinPayService.cambiarPasswordConCodigo(
         emailLimpio,

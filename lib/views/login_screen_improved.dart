@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:form_validator/form_validator.dart';
 import '../services/feelin_pay_service.dart';
 import 'country_picker.dart';
-import '../utils/string_utils.dart';
+// StringUtils removed - using built-in string methods
 import 'dashboard_improved.dart';
 import 'password_recovery_screen.dart';
 
@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Listener para limpiar automáticamente el email mientras se escribe
     _emailController.addListener(() {
       final currentText = _emailController.text;
-      final cleanText = StringUtils.cleanEmail(currentText);
+      final cleanText = currentText.trim().toLowerCase();
       if (currentText != cleanText) {
         _emailController.value = _emailController.value.copyWith(
           text: cleanText,
@@ -57,7 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final email = StringUtils.cleanEmail(_emailController.text);
+      final email = _emailController.text.trim().toLowerCase();
       final password = _passwordController.text;
 
       // Actualizar el campo de email con la versión limpia
@@ -135,22 +135,28 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final nombre = StringUtils.capitalizeWords(
-        StringUtils.cleanString(_nombreController.text),
-      );
-      final email = StringUtils.cleanEmail(_emailController.text);
+      final nombre = _nombreController.text
+          .trim()
+          .split(' ')
+          .map(
+            (word) => word.isNotEmpty
+                ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+                : '',
+          )
+          .join(' ');
+      final email = _emailController.text.trim().toLowerCase();
       // Combinar código de país + número
       final telefono =
           _selectedCountry!.dialCode +
-          StringUtils.cleanPhoneNumber(_telefonoController.text);
+          _telefonoController.text.replaceAll(RegExp(r'[^\d]'), '');
       final password = _passwordController.text;
 
       // Validar datos
-      if (!StringUtils.isValidEmail(email)) {
+      if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email)) {
         throw Exception('Email inválido');
       }
 
-      if (!StringUtils.isValidPhone(telefono)) {
+      if (telefono.length < 9) {
         throw Exception('Número de teléfono inválido');
       }
 
@@ -311,8 +317,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         if (value == null || value.isEmpty) {
                           return 'El email es requerido';
                         }
-                        final cleanEmail = StringUtils.cleanEmail(value);
-                        if (!StringUtils.isValidEmail(cleanEmail)) {
+                        final cleanEmail = value.trim().toLowerCase();
+                        if (!RegExp(
+                          r'^[^\s@]+@[^\s@]+\.[^\s@]+$',
+                        ).hasMatch(cleanEmail)) {
                           return 'Ingresa un email válido';
                         }
                         return null;

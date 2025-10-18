@@ -6,16 +6,14 @@ import 'package:path/path.dart';
 class LocalDatabase {
   static Database? _database;
   static const String _databaseName = 'feelin_pay_local.db';
-  static const int _databaseVersion = 1;
+  static const int _databaseVersion = 3; // Incrementado para membresías
 
   // Tablas
   static const String _usuariosTable = 'usuarios';
   static const String _empleadosTable = 'empleados';
   static const String _pagosTable = 'pagos';
-  static const String _licenciasTable = 'licencias';
-  static const String _auditoriaLogsTable = 'auditoria_logs';
+  static const String _membresiasTable = 'membresias';
   static const String _otpCodesTable = 'otp_codes';
-  static const String _otpAttemptsTable = 'otp_attempts';
   static const String _notificacionesTable = 'notificaciones_yape';
   static const String _smsTable = 'sms_enviados';
 
@@ -52,12 +50,8 @@ class LocalDatabase {
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         rolId TEXT NOT NULL,
-        googleSpreadsheetId TEXT,
+        googleSpreadsheetId TEXT NOT NULL,
         activo INTEGER DEFAULT 1,
-        creadoPor TEXT,
-        licenciaActiva INTEGER DEFAULT 0,
-        fechaExpiracionLicencia TEXT,
-        codigoLicencia TEXT,
         enPeriodoPrueba INTEGER DEFAULT 0,
         fechaInicioPrueba TEXT,
         diasPruebaRestantes INTEGER DEFAULT 0,
@@ -67,9 +61,7 @@ class LocalDatabase {
         lastOtpAttemptDate TEXT,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
-        lastLoginAt TEXT,
-        loginAttempts INTEGER DEFAULT 0,
-        lockedUntil TEXT
+        lastLoginAt TEXT
       )
     ''');
 
@@ -95,10 +87,9 @@ class LocalDatabase {
         nombrePagador TEXT NOT NULL,
         monto REAL NOT NULL,
         fecha TEXT NOT NULL,
-        codigoSeguridad TEXT,
+        codigoSeguridad TEXT UNIQUE NOT NULL,
         registradoEnSheets INTEGER DEFAULT 0,
         notificadoEmpleados INTEGER DEFAULT 0,
-        hashNotificacion TEXT UNIQUE,
         numeroTelefono TEXT,
         mensajeOriginal TEXT,
         createdAt TEXT NOT NULL,
@@ -126,65 +117,36 @@ class LocalDatabase {
       )
     ''');
 
-    // Tabla de licencias
+    // Tabla de membresías
     await db.execute('''
-      CREATE TABLE $_licenciasTable (
-        codigo TEXT PRIMARY KEY,
-        propietarioId TEXT,
+      CREATE TABLE $_membresiasTable (
+        id TEXT PRIMARY KEY,
+        usuarioId TEXT NOT NULL,
         tipo TEXT NOT NULL,
-        fechaEmision TEXT NOT NULL,
+        fechaInicio TEXT NOT NULL,
         fechaExpiracion TEXT NOT NULL,
         activa INTEGER DEFAULT 1,
+        diasRestantes INTEGER NOT NULL,
+        precio REAL NOT NULL,
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
         activadaAt TEXT,
-        creadoPor TEXT,
-        FOREIGN KEY (propietarioId) REFERENCES $_usuariosTable (id)
-      )
-    ''');
-
-    // Tabla de auditoría logs
-    await db.execute('''
-      CREATE TABLE $_auditoriaLogsTable (
-        id TEXT PRIMARY KEY,
-        usuarioId TEXT NOT NULL,
-        accion TEXT NOT NULL,
-        descripcion TEXT NOT NULL,
-        metadata TEXT,
-        resultado TEXT NOT NULL,
-        ipAddress TEXT,
-        userAgent TEXT,
-        createdAt TEXT NOT NULL,
         FOREIGN KEY (usuarioId) REFERENCES $_usuariosTable (id)
       )
     ''');
 
-    // Tabla de códigos OTP
+    // Tabla de códigos OTP (simplificada - solo uno por email)
     await db.execute('''
       CREATE TABLE $_otpCodesTable (
         id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
         codigo TEXT NOT NULL,
         tipo TEXT NOT NULL,
         expiraEn TEXT NOT NULL,
         usado INTEGER DEFAULT 0,
         intentos INTEGER DEFAULT 0,
         maxIntentos INTEGER DEFAULT 3,
-        metadata TEXT,
         createdAt TEXT NOT NULL
-      )
-    ''');
-
-    // Tabla de intentos OTP
-    await db.execute('''
-      CREATE TABLE $_otpAttemptsTable (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL,
-        intentosHoy INTEGER DEFAULT 0,
-        fechaUltimoIntento TEXT,
-        bloqueadoHasta TEXT,
-        createdAt TEXT NOT NULL,
-        updatedAt TEXT NOT NULL
       )
     ''');
 
@@ -216,9 +178,6 @@ class LocalDatabase {
       'CREATE INDEX idx_usuarios_rolId ON $_usuariosTable (rolId)',
     );
     await db.execute(
-      'CREATE INDEX idx_usuarios_createdAt ON $_usuariosTable (createdAt)',
-    );
-    await db.execute(
       'CREATE INDEX idx_empleados_propietario ON $_empleadosTable (propietarioId)',
     );
     await db.execute(
@@ -229,22 +188,16 @@ class LocalDatabase {
       'CREATE INDEX idx_pagos_registradoEnSheets ON $_pagosTable (registradoEnSheets)',
     );
     await db.execute(
-      'CREATE INDEX idx_pagos_hashNotificacion ON $_pagosTable (hashNotificacion)',
+      'CREATE INDEX idx_pagos_codigoSeguridad ON $_pagosTable (codigoSeguridad)',
     );
     await db.execute(
-      'CREATE INDEX idx_licencias_propietario ON $_licenciasTable (propietarioId)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_auditoria_usuario ON $_auditoriaLogsTable (usuarioId)',
+      'CREATE INDEX idx_membresias_usuario ON $_membresiasTable (usuarioId)',
     );
     await db.execute(
       'CREATE INDEX idx_otp_codes_email ON $_otpCodesTable (email)',
     );
     await db.execute(
       'CREATE INDEX idx_otp_codes_expiraEn ON $_otpCodesTable (expiraEn)',
-    );
-    await db.execute(
-      'CREATE INDEX idx_otp_attempts_email ON $_otpAttemptsTable (email)',
     );
     await db.execute(
       'CREATE INDEX idx_notificaciones_propietario ON $_notificacionesTable (propietarioId)',
@@ -259,7 +212,61 @@ class LocalDatabase {
     int oldVersion,
     int newVersion,
   ) async {
-    // Implementar migraciones si es necesario
+    if (oldVersion < 2) {
+      // Eliminar tablas no usadas
+      await db.execute('DROP TABLE IF EXISTS auditoria_logs');
+      await db.execute('DROP TABLE IF EXISTS otp_attempts');
+
+      // Limpiar tabla usuarios
+      await db.execute(
+        'ALTER TABLE $_usuariosTable DROP COLUMN googleSpreadsheetId',
+      );
+      await db.execute('ALTER TABLE $_usuariosTable DROP COLUMN creadoPor');
+      await db.execute(
+        'ALTER TABLE $_usuariosTable DROP COLUMN licenciaActiva',
+      );
+      await db.execute(
+        'ALTER TABLE $_usuariosTable DROP COLUMN fechaExpiracionLicencia',
+      );
+      await db.execute(
+        'ALTER TABLE $_usuariosTable DROP COLUMN codigoLicencia',
+      );
+      await db.execute('ALTER TABLE $_usuariosTable DROP COLUMN loginAttempts');
+      await db.execute('ALTER TABLE $_usuariosTable DROP COLUMN lockedUntil');
+
+      // Hacer email único en otp_codes
+      await db.execute(
+        'CREATE UNIQUE INDEX idx_otp_codes_email_unique ON $_otpCodesTable (email)',
+      );
+    }
+
+    if (oldVersion < 3) {
+      // Eliminar tabla de licencias y crear tabla de membresías
+      await db.execute('DROP TABLE IF EXISTS licencias');
+
+      // Crear tabla de membresías
+      await db.execute('''
+        CREATE TABLE $_membresiasTable (
+          id TEXT PRIMARY KEY,
+          usuarioId TEXT NOT NULL,
+          tipo TEXT NOT NULL,
+          fechaInicio TEXT NOT NULL,
+          fechaExpiracion TEXT NOT NULL,
+          activa INTEGER DEFAULT 1,
+          diasRestantes INTEGER NOT NULL,
+          precio REAL NOT NULL,
+          createdAt TEXT NOT NULL,
+          updatedAt TEXT NOT NULL,
+          activadaAt TEXT,
+          FOREIGN KEY (usuarioId) REFERENCES $_usuariosTable (id)
+        )
+      ''');
+
+      // Crear índice para membresías
+      await db.execute(
+        'CREATE INDEX idx_membresias_usuario ON $_membresiasTable (usuarioId)',
+      );
+    }
   }
 
   // ==================== USUARIOS ====================
@@ -277,11 +284,6 @@ class LocalDatabase {
       'rolId': usuario['rolId'],
       'googleSpreadsheetId': usuario['googleSpreadsheetId'],
       'activo': usuario['activo'] ? 1 : 0,
-      'creadoPor': usuario['creadoPor'],
-      'licenciaActiva': usuario['licenciaActiva'] ? 1 : 0,
-      'fechaExpiracionLicencia': usuario['fechaExpiracionLicencia']
-          ?.toIso8601String(),
-      'codigoLicencia': usuario['codigoLicencia'],
       'enPeriodoPrueba': usuario['enPeriodoPrueba'] ? 1 : 0,
       'fechaInicioPrueba': usuario['fechaInicioPrueba']?.toIso8601String(),
       'diasPruebaRestantes': usuario['diasPruebaRestantes'] ?? 0,
@@ -292,8 +294,6 @@ class LocalDatabase {
       'createdAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
       'lastLoginAt': usuario['lastLoginAt']?.toIso8601String(),
-      'loginAttempts': usuario['loginAttempts'] ?? 0,
-      'lockedUntil': usuario['lockedUntil']?.toIso8601String(),
     });
 
     return id;
@@ -311,7 +311,6 @@ class LocalDatabase {
       final usuario = result.first;
       // Convertir enteros a booleanos
       usuario['activo'] = usuario['activo'] == 1;
-      usuario['licenciaActiva'] = usuario['licenciaActiva'] == 1;
       usuario['enPeriodoPrueba'] = usuario['enPeriodoPrueba'] == 1;
       usuario['emailVerificado'] = usuario['emailVerificado'] == 1;
       return usuario;
@@ -326,7 +325,6 @@ class LocalDatabase {
     // Convertir enteros a booleanos
     for (var usuario in result) {
       usuario['activo'] = usuario['activo'] == 1;
-      usuario['licenciaActiva'] = usuario['licenciaActiva'] == 1;
       usuario['enPeriodoPrueba'] = usuario['enPeriodoPrueba'] == 1;
       usuario['emailVerificado'] = usuario['emailVerificado'] == 1;
     }
@@ -371,77 +369,43 @@ class LocalDatabase {
     return result;
   }
 
-  // ==================== LICENCIAS ====================
+  // ==================== MEMBRESÍAS ====================
 
-  static Future<String> createLicencia(Map<String, dynamic> licencia) async {
+  static Future<String> createMembresia(Map<String, dynamic> membresia) async {
     final db = await database;
 
-    await db.insert(_licenciasTable, {
-      'codigo': licencia['codigo'],
-      'propietarioId': licencia['propietarioId'],
-      'tipo': licencia['tipo'],
-      'fechaEmision': licencia['fechaEmision'],
-      'fechaExpiracion': licencia['fechaExpiracion'],
-      'activa': licencia['activa'] ? 1 : 0,
+    await db.insert(_membresiasTable, {
+      'id': membresia['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'usuarioId': membresia['usuarioId'],
+      'tipo': membresia['tipo'],
+      'fechaInicio': membresia['fechaInicio'],
+      'fechaExpiracion': membresia['fechaExpiracion'],
+      'activa': membresia['activa'] ? 1 : 0,
+      'diasRestantes': membresia['diasRestantes'],
+      'precio': membresia['precio'],
       'createdAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
-      'activadaAt': licencia['activadaAt']?.toIso8601String(),
-      'creadoPor': licencia['creadoPor'],
+      'activadaAt': membresia['activadaAt']?.toIso8601String(),
     });
 
-    return licencia['codigo'];
+    return membresia['id'] ?? DateTime.now().millisecondsSinceEpoch.toString();
   }
 
-  static Future<List<Map<String, dynamic>>> getLicenciasByPropietario(
-    String propietarioId,
-  ) async {
-    final db = await database;
-    final result = await db.query(
-      _licenciasTable,
-      where: 'propietarioId = ?',
-      whereArgs: [propietarioId],
-      orderBy: 'fechaEmision DESC',
-    );
-
-    // Convertir enteros a booleanos
-    for (var licencia in result) {
-      licencia['activa'] = licencia['activa'] == 1;
-    }
-
-    return result;
-  }
-
-  // ==================== AUDITORÍA ====================
-
-  static Future<String> createAuditoriaLog(Map<String, dynamic> log) async {
-    final db = await database;
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-
-    await db.insert(_auditoriaLogsTable, {
-      'id': id,
-      'usuarioId': log['usuarioId'],
-      'accion': log['accion'],
-      'descripcion': log['descripcion'],
-      'metadata': log['metadata'],
-      'resultado': log['resultado'],
-      'ipAddress': log['ipAddress'],
-      'userAgent': log['userAgent'],
-      'createdAt': DateTime.now().toIso8601String(),
-    });
-
-    return id;
-  }
-
-  static Future<List<Map<String, dynamic>>> getAuditoriaLogsByUsuario(
+  static Future<List<Map<String, dynamic>>> getMembresiasByUsuario(
     String usuarioId,
   ) async {
     final db = await database;
     final result = await db.query(
-      _auditoriaLogsTable,
+      _membresiasTable,
       where: 'usuarioId = ?',
       whereArgs: [usuarioId],
-      orderBy: 'createdAt DESC',
+      orderBy: 'fechaInicio DESC',
     );
+
+    // Convertir enteros a booleanos
+    for (var membresia in result) {
+      membresia['activa'] = membresia['activa'] == 1;
+    }
 
     return result;
   }
@@ -452,6 +416,13 @@ class LocalDatabase {
     final db = await database;
     final id = DateTime.now().millisecondsSinceEpoch.toString();
 
+    // Eliminar OTP anterior si existe
+    await db.delete(
+      _otpCodesTable,
+      where: 'email = ?',
+      whereArgs: [otp['email']],
+    );
+
     await db.insert(_otpCodesTable, {
       'id': id,
       'email': otp['email'],
@@ -461,7 +432,6 @@ class LocalDatabase {
       'usado': otp['usado'] ? 1 : 0,
       'intentos': otp['intentos'] ?? 0,
       'maxIntentos': otp['maxIntentos'] ?? 3,
-      'metadata': otp['metadata'],
       'createdAt': DateTime.now().toIso8601String(),
     });
 
@@ -499,57 +469,6 @@ class LocalDatabase {
     );
   }
 
-  // ==================== OTP ATTEMPTS ====================
-
-  static Future<String> createOtpAttempt(Map<String, dynamic> attempt) async {
-    final db = await database;
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-
-    await db.insert(_otpAttemptsTable, {
-      'id': id,
-      'email': attempt['email'],
-      'intentosHoy': attempt['intentosHoy'] ?? 0,
-      'fechaUltimoIntento': attempt['fechaUltimoIntento']?.toIso8601String(),
-      'bloqueadoHasta': attempt['bloqueadoHasta']?.toIso8601String(),
-      'createdAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-
-    return id;
-  }
-
-  static Future<Map<String, dynamic>?> getOtpAttemptsByEmail(
-    String email,
-  ) async {
-    final db = await database;
-    final result = await db.query(
-      _otpAttemptsTable,
-      where: 'email = ?',
-      whereArgs: [email],
-      orderBy: 'createdAt DESC',
-      limit: 1,
-    );
-
-    if (result.isNotEmpty) {
-      return result.first;
-    }
-    return null;
-  }
-
-  static Future<void> updateOtpAttempts(String email, int intentos) async {
-    final db = await database;
-    await db.update(
-      _otpAttemptsTable,
-      {
-        'intentosHoy': intentos,
-        'fechaUltimoIntento': DateTime.now().toIso8601String(),
-        'updatedAt': DateTime.now().toIso8601String(),
-      },
-      where: 'email = ?',
-      whereArgs: [email],
-    );
-  }
-
   // ==================== PAGOS ====================
 
   static Future<String> createPago(Map<String, dynamic> pago) async {
@@ -565,7 +484,6 @@ class LocalDatabase {
       'codigoSeguridad': pago['codigoSeguridad'],
       'registradoEnSheets': pago['registradoEnSheets'] ? 1 : 0,
       'notificadoEmpleados': pago['notificadoEmpleados'] ? 1 : 0,
-      'hashNotificacion': pago['hashNotificacion'],
       'numeroTelefono': pago['numeroTelefono'],
       'mensajeOriginal': pago['mensajeOriginal'],
       'createdAt': DateTime.now().toIso8601String(),
@@ -790,9 +708,6 @@ class LocalDatabase {
         'codigoSeguridad': infoPago['codigoSeguridad'],
         'registradoEnSheets': false,
         'notificadoEmpleados': false,
-        'hashNotificacion': _generarHash(
-          infoPago['nombrePagador'] + infoPago['monto'].toString(),
-        ),
         'numeroTelefono': infoPago['numeroTelefono'],
         'mensajeOriginal': null,
       });

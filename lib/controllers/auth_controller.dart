@@ -1,294 +1,222 @@
-import 'package:flutter/material.dart';
-import '../models/user.dart';
-import '../services/feelin_pay_service.dart';
-import '../services/session_service.dart';
-import '../services/otp_attempt_service.dart';
+import 'package:flutter/foundation.dart';
+import '../models/user_model.dart';
+import '../services/api_service.dart';
 
+/// Auth Controller - Controlador simple para autenticación
 class AuthController extends ChangeNotifier {
-  User? _currentUser;
-  bool _isLoading = false;
-  String? _errorMessage;
+  final ApiService _apiService = ApiService();
 
-  User? get currentUser => _currentUser;
+  UserModel? _currentUser;
+  bool _isLoading = false;
+  String? _error;
+
+  // Getters
+  UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
-  String? get errorMessage => _errorMessage;
+  String? get error => _error;
+  bool get isAuthenticated => _currentUser != null;
   bool get isLoggedIn => _currentUser != null;
   bool get isVerified => _currentUser?.emailVerificado ?? false;
-  bool get isSuperAdmin => _currentUser?.isSuperAdmin ?? false;
+  bool get isSuperAdmin => _currentUser?.rol == 'super_admin';
 
-  // Login
+  /// Login
   Future<bool> login(String email, String password) async {
     _setLoading(true);
     _clearError();
 
     try {
-      final result = await FeelinPayService.login(
-        email: email,
-        password: password,
-      );
+      final response = await _apiService.login(email, password);
 
-      if (result['success']) {
-        _currentUser = User.fromJson(result['user']);
-
-        // Verificar si el usuario ya está verificado
-        if (_currentUser!.emailVerificado) {
-          // Usuario verificado, login exitoso
-          if (result.containsKey('token')) {
-            await SessionService.saveToken(result['token']);
-          }
-          await SessionService.saveUser(result['user']);
-
-          notifyListeners();
-          return true;
-        } else {
-          // Usuario no verificado, necesita OTP
-          await _sendOTP(email);
-          _setError(
-            'Se ha enviado un código OTP a tu correo. Por favor, verifica tu email.',
-          );
-          return false; // No completar login hasta verificar OTP
-        }
-      } else {
-        _setError(result['message'] ?? 'Error al iniciar sesión');
-        return false;
-      }
-    } catch (e) {
-      _setError('Error de conexión: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Enviar OTP automáticamente
-  Future<void> _sendOTP(String email) async {
-    try {
-      await FeelinPayService.reenviarCodigoOTP(email);
-    } catch (e) {
-      // Error enviando OTP
-    }
-  }
-
-  // Enviar OTP (método público)
-  Future<void> sendOTP(String email) async {
-    try {
-      await FeelinPayService.reenviarCodigoOTP(email);
-    } catch (e) {
-      // Error enviando OTP
-    }
-  }
-
-  // Verificar OTP después del login
-  Future<bool> verifyOTPAfterLogin(String email, String otpCode) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      // Verificar si puede intentar OTP
-      final canAttempt = await OTPAttemptService.canAttemptOTP(email);
-      if (!canAttempt) {
-        _setError('Has excedido el número máximo de intentos. Intenta mañana.');
-        return false;
-      }
-
-      final result = await FeelinPayService.verificarCodigoOTP(
-        email, // userId
-        otpCode, // codigo
-      );
-
-      if (result['success']) {
-        // OTP verificado, completar login
-        _currentUser = User.fromJson(result['user']);
-
-        // Marcar usuario como verificado
-        _currentUser = User(
-          id: _currentUser!.id,
-          nombre: _currentUser!.nombre,
-          email: _currentUser!.email,
-          telefono: _currentUser!.telefono,
-          rol: _currentUser!.rol,
-          activo: _currentUser!.activo,
-          emailVerificado: true, // Marcar como verificado
-          licenciaActiva: _currentUser!.licenciaActiva,
-          fechaExpiracionLicencia: _currentUser!.fechaExpiracionLicencia,
-          enPeriodoPrueba: _currentUser!.enPeriodoPrueba,
-          diasPruebaRestantes: _currentUser!.diasPruebaRestantes,
-        );
-
-        // Guardar sesión persistente
-        if (result.containsKey('token')) {
-          await SessionService.saveToken(result['token']);
-        }
-        await SessionService.saveUser(_currentUser!.toJson());
-
-        // Limpiar intentos exitosos
-        await OTPAttemptService.clearAttemptsForEmail(email);
-
+      if (response['success'] == true) {
+        _currentUser = UserModel.fromJson(response['data']['user']);
         notifyListeners();
         return true;
       } else {
-        // Registrar intento fallido
-        final hasAttemptsLeft = await OTPAttemptService.recordFailedAttempt(
-          email,
-        );
-
-        if (!hasAttemptsLeft) {
-          _setError(
-            'Has excedido el número máximo de intentos. Intenta mañana.',
-          );
-        } else {
-          _setError(result['message'] ?? 'Código OTP inválido');
-        }
+        _setError(response['message'] ?? 'Error en el login');
         return false;
       }
     } catch (e) {
-      _setError('Error verificando OTP: ${e.toString()}');
+      _setError('Error de conexión: $e');
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  // Register
+  /// Register
   Future<bool> register({
     required String nombre,
-    required String email,
     required String telefono,
-    required String password,
-  }) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      final result = await FeelinPayService.register(
-        nombre: nombre,
-        email: email,
-        telefono: telefono,
-        password: password,
-      );
-
-      if (result['success']) {
-        return true;
-      } else {
-        _setError(result['message'] ?? 'Error al registrarse');
-        return false;
-      }
-    } catch (e) {
-      _setError('Error de conexión: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Logout
-  Future<void> logout() async {
-    try {
-      await FeelinPayService.logout();
-      // Limpiar sesión persistente
-      await SessionService.logout();
-      _currentUser = null;
-      notifyListeners();
-    } catch (e) {
-      _setError('Error al cerrar sesión: ${e.toString()}');
-    }
-  }
-
-  // Check if user is logged in
-  Future<void> checkAuthStatus() async {
-    try {
-      // Verificar sesión persistente primero
-      final hasSession = await SessionService.isLoggedIn();
-
-      if (hasSession) {
-        // Obtener datos del usuario desde la sesión persistente
-        final userData = await SessionService.getUser();
-        if (userData != null) {
-          _currentUser = User.fromJson(userData);
-          // Actualizar última actividad
-          await SessionService.updateLastActivity();
-        } else {
-          // Si no hay datos del usuario, intentar obtener del servicio
-          final profileResult = await FeelinPayService.getProfile();
-          if (profileResult.containsKey('user')) {
-            _currentUser = User.fromJson(profileResult['user']);
-            // Guardar en sesión persistente
-            await SessionService.saveUser(profileResult['user']);
-          }
-        }
-      } else {
-        _currentUser = null;
-      }
-      notifyListeners();
-    } catch (e) {
-      _setError('Error verificando autenticación: ${e.toString()}');
-    }
-  }
-
-  // Password recovery
-  Future<bool> requestPasswordRecovery(String email) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      final result = await FeelinPayService.solicitarRecuperacionPassword(
-        email,
-      );
-      if (result['success']) {
-        return true;
-      } else {
-        _setError(result['message'] ?? 'Error solicitando recuperación');
-        return false;
-      }
-    } catch (e) {
-      _setError('Error de conexión: ${e.toString()}');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Change password with OTP
-  Future<bool> changePasswordWithOTP({
     required String email,
-    required String codigo,
-    required String nuevaPassword,
+    required String password,
+    required String confirmPassword,
   }) async {
     _setLoading(true);
     _clearError();
 
     try {
-      final result = await FeelinPayService.cambiarPasswordConCodigo(
-        email,
-        codigo,
-        nuevaPassword,
+      final response = await _apiService.register(
+        nombre: nombre,
+        telefono: telefono,
+        email: email,
+        password: password,
+        confirmPassword: confirmPassword,
       );
 
-      if (result['success']) {
+      if (response['success'] == true) {
+        _currentUser = UserModel.fromJson(response['data']['user']);
+        notifyListeners();
         return true;
       } else {
-        _setError(result['message'] ?? 'Error cambiando contraseña');
+        _setError(response['message'] ?? 'Error en el registro');
         return false;
       }
     } catch (e) {
-      _setError('Error de conexión: ${e.toString()}');
+      _setError('Error de conexión: $e');
       return false;
     } finally {
       _setLoading(false);
     }
   }
 
+  /// Logout
+  Future<void> logout() async {
+    _setLoading(true);
+
+    try {
+      await _apiService.logout();
+    } catch (e) {
+      print('Error en logout: $e');
+    } finally {
+      _currentUser = null;
+      _setLoading(false);
+      notifyListeners();
+    }
+  }
+
+  /// Send OTP
+  Future<bool> sendOTP(String email, String tipo) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _apiService.sendOTP(email, tipo);
+
+      if (response['success'] == true) {
+        return true;
+      } else {
+        _setError(response['message'] ?? 'Error enviando OTP');
+        return false;
+      }
+    } catch (e) {
+      _setError('Error de conexión: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verify OTP
+  Future<bool> verifyOTP(String email, String codigo, String tipo) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _apiService.verifyOTP(email, codigo, tipo);
+
+      if (response) {
+        return true;
+      } else {
+        _setError('Código OTP inválido');
+        return false;
+      }
+    } catch (e) {
+      _setError('Error de conexión: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Get current user
+  Future<void> getCurrentUser() async {
+    if (_currentUser != null) return;
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final response = await _apiService.getCurrentUser();
+
+      if (response != null) {
+        _currentUser = response;
+        notifyListeners();
+      }
+    } catch (e) {
+      _setError('Error obteniendo usuario: $e');
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  /// Verificar estado de autenticación
+  Future<void> checkAuthStatus() async {
+    _setLoading(true);
+    try {
+      // Verificar si hay token guardado
+      final token = await _apiService.getStoredToken();
+      if (token != null) {
+        // Verificar token con el servidor
+        final user = await _apiService.getCurrentUser();
+        if (user != null) {
+          _currentUser = user;
+        }
+      }
+    } catch (e) {
+      _setError('Error verificando autenticación: $e');
+    } finally {
+      _setLoading(false);
+      notifyListeners();
+    }
+  }
+
+  /// Verificar OTP después del login
+  Future<bool> verifyOTPAfterLogin(String email, String code) async {
+    _setLoading(true);
+    _clearError();
+
+    try {
+      final result = await _apiService.verifyOTP(
+        email,
+        code,
+        'LOGIN_VERIFICATION',
+      );
+      if (result) {
+        // Actualizar usuario después de verificación
+        await checkAuthStatus();
+      }
+      return result;
+    } catch (e) {
+      _setError('Error verificando OTP: $e');
+      return false;
+    } finally {
+      _setLoading(false);
+      notifyListeners();
+    }
+  }
+
+  // Private methods
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
   }
 
   void _setError(String error) {
-    _errorMessage = error;
+    _error = error;
     notifyListeners();
   }
 
   void _clearError() {
-    _errorMessage = null;
+    _error = null;
   }
 }

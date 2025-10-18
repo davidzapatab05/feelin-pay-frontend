@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../database/local_database.dart';
+// StringUtils removed - using built-in string methods
 
 /// Servicio principal de Feelin Pay que integra todas las funcionalidades
 class FeelinPayService {
@@ -114,11 +115,9 @@ class FeelinPayService {
   }) async {
     try {
       // Intentar login online primero
-      final headers = await _authHeaders;
-
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
-        headers: headers,
+        headers: _headers,
         body: jsonEncode({'email': email, 'password': password}),
       );
 
@@ -711,10 +710,13 @@ class FeelinPayService {
   /// Reenviar código OTP
   static Future<Map<String, dynamic>> reenviarCodigoOTP(String email) async {
     try {
+      // Limpiar email antes de enviar
+      final emailLimpio = (email) => email.trim().toLowerCase()(email);
+
       final response = await http.post(
         Uri.parse('$baseUrl/otp/reenviar'),
         headers: _headers,
-        body: jsonEncode({'email': email}),
+        body: jsonEncode({'email': emailLimpio}),
       );
 
       if (response.statusCode == 200) {
@@ -740,10 +742,13 @@ class FeelinPayService {
     String email,
   ) async {
     try {
+      // Limpiar email antes de enviar
+      final emailLimpio = (email) => email.trim().toLowerCase()(email);
+
       final response = await http.post(
         Uri.parse('$baseUrl/otp/recuperar-password'),
         headers: _headers,
-        body: jsonEncode({'email': email}),
+        body: jsonEncode({'email': emailLimpio}),
       );
 
       if (response.statusCode == 200) {

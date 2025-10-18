@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'views/login_screen_improved.dart';
 import 'views/dashboard_improved.dart';
 import 'views/password_recovery_screen.dart';
-import 'views/otp_verification_screen.dart';
 import 'views/system_check_screen.dart';
 import 'views/permissions_management_screen.dart';
 import 'views/login_otp_verification_screen.dart';
@@ -92,10 +91,8 @@ class MyApp extends StatelessWidget {
             final args = settings.arguments as Map<String, dynamic>?;
             if (args != null) {
               return MaterialPageRoute(
-                builder: (context) => OtpVerificationScreen(
-                  email: args['email'] ?? '',
-                  userId: args['userId'] ?? '',
-                ),
+                builder: (context) =>
+                    LoginOTPVerificationScreen(email: args['email'] ?? ''),
               );
             }
           }

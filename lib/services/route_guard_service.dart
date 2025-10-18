@@ -1,4 +1,4 @@
-import '../models/user.dart';
+import '../models/user_model.dart';
 
 class RouteGuardService {
   // Rutas públicas (no requieren autenticación)
@@ -49,7 +49,7 @@ class RouteGuardService {
   }
 
   /// Verificar si el usuario puede acceder a una ruta
-  static bool canAccessRoute(String route, User? user) {
+  static bool canAccessRoute(String route, UserModel? user) {
     // Rutas públicas siempre accesibles
     if (isPublicRoute(route)) {
       return true;
@@ -79,7 +79,7 @@ class RouteGuardService {
   }
 
   /// Obtener la ruta de redirección según el estado del usuario
-  static String getRedirectRoute(User? user, String requestedRoute) {
+  static String getRedirectRoute(UserModel? user, String requestedRoute) {
     // Si no hay usuario, ir a login
     if (user == null) {
       return '/login';
@@ -100,19 +100,19 @@ class RouteGuardService {
   }
 
   /// Verificar si el usuario necesita verificación
-  static bool needsVerification(User? user) {
+  static bool needsVerification(UserModel? user) {
     if (user == null) return false;
     return !user.emailVerificado;
   }
 
   /// Verificar si el usuario es super admin
-  static bool isSuperAdmin(User? user) {
+  static bool isSuperAdmin(UserModel? user) {
     if (user == null) return false;
     return user.isSuperAdmin;
   }
 
   /// Obtener mensaje de error según el tipo de restricción
-  static String getAccessDeniedMessage(String route, User? user) {
+  static String getAccessDeniedMessage(String route, UserModel? user) {
     if (user == null) {
       return 'Debes iniciar sesión para acceder a esta función';
     }
