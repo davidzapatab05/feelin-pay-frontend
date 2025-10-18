@@ -47,14 +47,14 @@ class ApiService {
     try {
       print('🔍 [API] Intentando login para: $email');
 
-      final requestBody = {'email': email.trim(), 'password': password};
-
+      // Crear el body manualmente para evitar problemas de serialización
+      final requestBody = '{"email":"${email.trim()}","password":"$password"}';
       print('🔍 [API] Request body: $requestBody');
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers,
-        body: jsonEncode(requestBody),
+        body: requestBody,
       );
 
       print('🔍 [API] Response status: ${response.statusCode}');
@@ -88,20 +88,15 @@ class ApiService {
     try {
       print('🔍 [API] Intentando registro para: $email');
 
-      final requestBody = {
-        'nombre': nombre.trim(),
-        'telefono': telefono.trim(),
-        'email': email.trim(),
-        'password': password,
-        'confirmPassword': confirmPassword,
-      };
-
+      // Crear el body manualmente para evitar problemas de serialización
+      final requestBody =
+          '{"nombre":"${nombre.trim()}","telefono":"${telefono.trim()}","email":"${email.trim()}","password":"$password","confirmPassword":"$confirmPassword"}';
       print('🔍 [API] Request body: $requestBody');
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: _headers,
-        body: jsonEncode(requestBody),
+        body: requestBody,
       );
 
       print('🔍 [API] Response status: ${response.statusCode}');
@@ -143,14 +138,14 @@ class ApiService {
     try {
       print('🔍 [API] Intentando forgot password para: $email');
 
-      final requestBody = {'email': email.trim()};
-
+      // Crear el body manualmente para evitar problemas de serialización
+      final requestBody = '{"email":"${email.trim()}"}';
       print('🔍 [API] Request body: $requestBody');
 
       final response = await http.post(
         Uri.parse('$baseUrl/auth/forgot-password'),
         headers: _headers,
-        body: jsonEncode(requestBody),
+        body: requestBody,
       );
 
       print('🔍 [API] Response status: ${response.statusCode}');

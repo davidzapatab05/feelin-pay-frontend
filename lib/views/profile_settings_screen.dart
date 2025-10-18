@@ -60,7 +60,7 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     });
 
     try {
-      final result = await FeelinPayService.obtenerPerfil();
+      final result = await FeelinPayService.getProfile();
       if (result['success']) {
         setState(() {
           _usuario = result['usuario'];

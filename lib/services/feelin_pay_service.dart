@@ -1081,28 +1081,6 @@ class FeelinPayService {
 
   // ========== MÉTODOS DE CONFIGURACIÓN DE PERFIL ==========
 
-  // Obtener perfil del usuario
-  static Future<Map<String, dynamic>> obtenerPerfil() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$baseUrl/api/profile/profile'),
-        headers: await _authHeaders,
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        return {'success': true, 'usuario': data['usuario']};
-      } else {
-        final error = jsonDecode(response.body);
-        return {
-          'success': false,
-          'error': error['error'] ?? 'Error obteniendo perfil',
-        };
-      }
-    } catch (e) {
-      return {'success': false, 'error': 'Error de conexión: $e'};
-    }
-  }
 
   // Actualizar nombre del usuario
   static Future<Map<String, dynamic>> actualizarNombre(String nombre) async {

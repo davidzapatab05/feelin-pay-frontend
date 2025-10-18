@@ -1,6 +1,10 @@
 import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart'
+    as permission_handler;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+// Alias para PermissionStatus
+typedef PermissionStatus = permission_handler.PermissionStatus;
 
 class PermissionService {
   static final FlutterLocalNotificationsPlugin _notifications =
@@ -47,7 +51,8 @@ class PermissionService {
       await _notifications.initialize(initSettings);
 
       // Solicitar permisos
-      final permission = await Permission.notification.request();
+      final permission = await permission_handler.Permission.notification
+          .request();
       return permission.isGranted;
     } catch (e) {
       print('Error solicitando permisos de notificación: $e');
@@ -60,7 +65,7 @@ class PermissionService {
     try {
       if (Platform.isAndroid) {
         // Permisos específicos de Android para SMS
-        final smsPermission = await Permission.sms.request();
+        final smsPermission = await permission_handler.Permission.sms.request();
 
         return smsPermission.isGranted;
       } else if (Platform.isIOS) {
@@ -91,7 +96,7 @@ class PermissionService {
   static Future<bool> _requestPhonePermission() async {
     try {
       if (Platform.isAndroid) {
-        final permission = await Permission.phone.request();
+        final permission = await permission_handler.Permission.phone.request();
         return permission.isGranted;
       }
       return true; // No necesario en iOS
@@ -105,7 +110,8 @@ class PermissionService {
   static Future<bool> _requestStoragePermission() async {
     try {
       if (Platform.isAndroid) {
-        final permission = await Permission.storage.request();
+        final permission = await permission_handler.Permission.storage
+            .request();
         return permission.isGranted;
       }
       return true; // No necesario en iOS
@@ -119,7 +125,8 @@ class PermissionService {
   static Future<bool> _requestContactsPermission() async {
     try {
       if (Platform.isIOS) {
-        final permission = await Permission.contacts.request();
+        final permission = await permission_handler.Permission.contacts
+            .request();
         return permission.isGranted;
       }
       return true; // No necesario en Android
@@ -133,14 +140,15 @@ class PermissionService {
   static Future<Map<String, PermissionStatus>> checkPermissionStatus() async {
     final status = <String, PermissionStatus>{};
 
-    status['notifications'] = await Permission.notification.status;
+    status['notifications'] =
+        await permission_handler.Permission.notification.status;
 
     if (Platform.isAndroid) {
-      status['sms'] = await Permission.sms.status;
-      status['phone'] = await Permission.phone.status;
-      status['storage'] = await Permission.storage.status;
+      status['sms'] = await permission_handler.Permission.sms.status;
+      status['phone'] = await permission_handler.Permission.phone.status;
+      status['storage'] = await permission_handler.Permission.storage.status;
     } else if (Platform.isIOS) {
-      status['contacts'] = await Permission.contacts.status;
+      status['contacts'] = await permission_handler.Permission.contacts.status;
     }
 
     return status;
@@ -149,7 +157,7 @@ class PermissionService {
   // Abrir configuración de la aplicación
   static Future<void> openAppSettings() async {
     try {
-      await openAppSettings();
+      await permission_handler.openAppSettings();
     } catch (e) {
       print('Error abriendo configuración de la aplicación: $e');
     }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart'
+    as permission_handler;
 import '../services/connectivity_service.dart';
 import '../services/permission_service.dart';
 
@@ -130,9 +131,10 @@ class SystemController extends ChangeNotifier {
 
       switch (permission) {
         case 'notifications':
-          return status['notifications'] == PermissionStatus.granted;
+          return status['notifications'] ==
+              permission_handler.PermissionStatus.granted;
         case 'sms':
-          return status['sms'] == PermissionStatus.granted;
+          return status['sms'] == permission_handler.PermissionStatus.granted;
         default:
           return false;
       }
