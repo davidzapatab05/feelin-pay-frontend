@@ -1,10 +1,10 @@
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
-import '../services/api_service.dart';
+import '../services/feelin_pay_service.dart';
 
 /// Auth Controller - Controlador simple para autenticación
 class AuthController extends ChangeNotifier {
-  final ApiService _apiService = ApiService();
+  // Usar FeelinPayService directamente
 
   UserModel? _currentUser;
   bool _isLoading = false;
@@ -25,7 +25,10 @@ class AuthController extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await _apiService.login(email, password);
+      final response = await FeelinPayService.login(
+        email: email,
+        password: password,
+      );
 
       if (response['success'] == true) {
         _currentUser = UserModel.fromJson(response['data']['user']);
@@ -55,12 +58,11 @@ class AuthController extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await _apiService.register(
+      final response = await FeelinPayService.register(
         nombre: nombre,
         telefono: telefono,
         email: email,
         password: password,
-        confirmPassword: confirmPassword,
       );
 
       if (response['success'] == true) {
@@ -84,7 +86,7 @@ class AuthController extends ChangeNotifier {
     _setLoading(true);
 
     try {
-      await _apiService.logout();
+      await FeelinPayService.logout();
     } catch (e) {
       print('Error en logout: $e');
     } finally {
@@ -94,18 +96,45 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Send OTP
+  /// Send OTP - Método no implementado
   Future<bool> sendOTP(String email, String tipo) async {
+    _setLoading(true);
+    _clearError();
+    _setError('Método no implementado');
+    _setLoading(false);
+    return false;
+  }
+
+  /// Forgot Password - Método no implementado
+  Future<bool> forgotPassword(String email) async {
+    _setLoading(true);
+    _clearError();
+    _setError('Método no implementado');
+    _setLoading(false);
+    return false;
+  }
+
+  /// Reset Password
+  Future<bool> resetPassword({
+    required String email,
+    required String codigo,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
     _setLoading(true);
     _clearError();
 
     try {
-      final response = await _apiService.sendOTP(email, tipo);
+      final response = await FeelinPayService.cambiarPasswordConCodigo(
+        email,
+        codigo,
+        newPassword,
+      );
 
       if (response['success'] == true) {
         return true;
       } else {
-        _setError(response['message'] ?? 'Error enviando OTP');
+        _setError(response['message'] ?? 'Error reseteando contraseña');
         return false;
       }
     } catch (e) {
@@ -116,26 +145,13 @@ class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Verify OTP
+  /// Verify OTP - Método no implementado
   Future<bool> verifyOTP(String email, String codigo, String tipo) async {
     _setLoading(true);
     _clearError();
-
-    try {
-      final response = await _apiService.verifyOTP(email, codigo, tipo);
-
-      if (response) {
-        return true;
-      } else {
-        _setError('Código OTP inválido');
-        return false;
-      }
-    } catch (e) {
-      _setError('Error de conexión: $e');
-      return false;
-    } finally {
-      _setLoading(false);
-    }
+    _setError('Método no implementado');
+    _setLoading(false);
+    return false;
   }
 
   /// Get current user
@@ -146,10 +162,10 @@ class AuthController extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await _apiService.getCurrentUser();
+      final response = await FeelinPayService.getCurrentUser();
 
       if (response != null) {
-        _currentUser = response;
+        _currentUser = UserModel.fromJson(response);
         notifyListeners();
       }
     } catch (e) {
@@ -163,14 +179,10 @@ class AuthController extends ChangeNotifier {
   Future<void> checkAuthStatus() async {
     _setLoading(true);
     try {
-      // Verificar si hay token guardado
-      final token = await _apiService.getStoredToken();
-      if (token != null) {
-        // Verificar token con el servidor
-        final user = await _apiService.getCurrentUser();
-        if (user != null) {
-          _currentUser = user;
-        }
+      // Verificar si hay usuario actual
+      final user = await FeelinPayService.getCurrentUser();
+      if (user != null) {
+        _currentUser = UserModel.fromJson(user);
       }
     } catch (e) {
       _setError('Error verificando autenticación: $e');
@@ -186,16 +198,9 @@ class AuthController extends ChangeNotifier {
     _clearError();
 
     try {
-      final result = await _apiService.verifyOTP(
-        email,
-        code,
-        'LOGIN_VERIFICATION',
-      );
-      if (result) {
-        // Actualizar usuario después de verificación
-        await checkAuthStatus();
-      }
-      return result;
+      // Método no implementado
+      _setError('Método no implementado');
+      return false;
     } catch (e) {
       _setError('Error verificando OTP: $e');
       return false;

@@ -3,16 +3,11 @@ import 'package:flutter/foundation.dart';
 /// Configuración de la aplicación
 class AppConfig {
   // Configuración del servidor backend
-  static const String apiBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://localhost:3001/api',
-  );
+  // Usar localhost para desarrollo local
+  static const String apiBaseUrl = 'http://localhost:3001/api';
 
   // Configuración de CORS (para desarrollo)
-  static const String corsOrigin = String.fromEnvironment(
-    'CORS_ORIGIN',
-    defaultValue: 'http://localhost:3000',
-  );
+  static const String corsOrigin = 'http://localhost:3000';
 
   // Configuración de timeout
   static const Duration requestTimeout = Duration(seconds: 30);
@@ -45,24 +40,12 @@ class AppConfig {
   static const int maxPageSize = 100;
 
   // Configuración de logs
-  static const bool enableDebugLogs = bool.fromEnvironment(
-    'DEBUG_LOGS',
-    defaultValue: true,
-  );
-  static const bool enableNetworkLogs = bool.fromEnvironment(
-    'NETWORK_LOGS',
-    defaultValue: true,
-  );
+  static const bool enableDebugLogs = true;
+  static const bool enableNetworkLogs = true;
 
   // Configuración de desarrollo
-  static const bool isDevelopment = bool.fromEnvironment(
-    'DEVELOPMENT',
-    defaultValue: true,
-  );
-  static const bool enableCrashReporting = bool.fromEnvironment(
-    'CRASH_REPORTING',
-    defaultValue: false,
-  );
+  static const bool isDevelopment = true;
+  static const bool enableCrashReporting = false;
 
   // URLs de endpoints específicos
   static const String authEndpoint = '/auth';
@@ -127,20 +110,11 @@ class AppConfig {
   static const bool enableCache = true;
 
   // Configuración de analytics
-  static const bool enableAnalytics = bool.fromEnvironment(
-    'ANALYTICS',
-    defaultValue: false,
-  );
-  static const bool enableCrashlytics = bool.fromEnvironment(
-    'CRASHLYTICS',
-    defaultValue: false,
-  );
+  static const bool enableAnalytics = false;
+  static const bool enableCrashlytics = false;
 
   // Configuración de testing
-  static const bool isTesting = bool.fromEnvironment(
-    'TESTING',
-    defaultValue: false,
-  );
+  static const bool isTesting = false;
   static const String testApiUrl = 'http://localhost:3001/api';
 
   // Métodos de utilidad

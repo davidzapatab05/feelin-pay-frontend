@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/yape_notification_service.dart';
+import '../services/payment_notification_service.dart';
 import '../services/sms_service.dart';
 import '../database/local_database.dart';
 
@@ -21,7 +21,7 @@ class NotificationController extends ChangeNotifier {
 
     try {
       _notificaciones =
-          await YapeNotificationService.getNotificacionesPendientes();
+          await PaymentNotificationService.getNotificacionesPendientes();
       notifyListeners();
     } catch (e) {
       _setError('Error cargando notificaciones: ${e.toString()}');
@@ -36,7 +36,7 @@ class NotificationController extends ChangeNotifier {
     _clearError();
 
     try {
-      await YapeNotificationService.procesarNotificacionesPendientes();
+      await PaymentNotificationService.procesarNotificacionesPendientes();
       await loadNotificaciones();
     } catch (e) {
       _setError('Error procesando notificaciones: ${e.toString()}');

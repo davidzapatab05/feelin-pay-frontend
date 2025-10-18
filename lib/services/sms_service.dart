@@ -1,9 +1,10 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../database/local_database.dart';
+import '../core/config/app_config.dart';
 
 class SMSService {
-  static const String _baseUrl = 'http://localhost:3001/api';
+  static String get _baseUrl => AppConfig.apiBaseUrl;
 
   // Enviar SMS a empleados sobre nuevo pago
   static Future<Map<String, dynamic>> enviarSMSAPago({

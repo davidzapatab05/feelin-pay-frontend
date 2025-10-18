@@ -1,7 +1,8 @@
 import 'dart:async';
+import 'package:http/http.dart' as http;
 import '../database/local_database.dart';
-import '../services/connectivity_service.dart';
 import '../services/session_service.dart';
+import '../core/config/app_config.dart';
 
 class BackgroundService {
   static Timer? _connectivityTimer;
@@ -43,15 +44,21 @@ class BackgroundService {
   // Verificar conectividad
   static Future<void> _checkConnectivity() async {
     try {
-      final hasConnection = await ConnectivityService.hasInternetConnection();
-      if (!hasConnection) {
-        print('⚠️ Sin conexión a Internet');
-        // Aquí podrías implementar lógica para manejar la falta de conexión
-      } else {
+      // Simple connectivity check - try to reach the backend
+      final response = await http
+          .get(
+            Uri.parse('${AppConfig.apiBaseUrl}/health'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
         print('✅ Conexión a Internet activa');
+      } else {
+        print('⚠️ Sin conexión a Internet');
       }
     } catch (e) {
-      print('❌ Error verificando conectividad: $e');
+      print('⚠️ Sin conexión a Internet: $e');
     }
   }
 

@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/feelin_pay_service.dart';
-import '../widgets/connectivity_indicator.dart';
-import 'user_management_screen.dart';
+import 'login_screen_improved.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,25 +9,42 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with TickerProviderStateMixin {
   Map<String, dynamic>? _userInfo;
-  Map<String, dynamic>? _estadisticas;
   bool _isLoading = true;
   bool _puedeUsarBotonPrueba = false;
   bool _botonPruebaIlimitado = false;
   String _razonBotonPrueba = '';
+  AnimationController? _animationController;
+  Animation<double>? _fadeAnimation;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController!, curve: Curves.easeOut),
+    );
+    _isInitialized = true;
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _animationController?.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
     try {
       final userInfo = await FeelinPayService.getProfile();
 
-      if (userInfo.containsKey('error') || userInfo['user'] == null) {
+      if (userInfo.containsKey('error') || userInfo['data'] == null) {
         await FeelinPayService.logout();
         if (mounted) {
           Navigator.pushReplacementNamed(context, '/login');
@@ -38,11 +53,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       }
 
       setState(() {
-        _userInfo = userInfo['user'];
+        _userInfo = userInfo['data'];
       });
 
-      await _loadEstadisticas();
       await _verificarBotonPrueba();
+      _animationController?.forward();
     } catch (e) {
       await FeelinPayService.logout();
       if (mounted) {
@@ -52,19 +67,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       setState(() {
         _isLoading = false;
       });
-    }
-  }
-
-  Future<void> _loadEstadisticas() async {
-    try {
-      final stats = await FeelinPayService.obtenerEstadisticas(
-        _userInfo?['id'] ?? '',
-      );
-      setState(() {
-        _estadisticas = stats;
-      });
-    } catch (e) {
-      // Error cargando estadísticas
     }
   }
 
@@ -83,165 +85,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  Future<void> _abrirGoogleSheets() async {
-    try {
-      final result = await FeelinPayService.abrirGoogleSheets();
-      if (result['success']) {
-        final url = result['url'];
-        if (await canLaunchUrl(Uri.parse(url))) {
-          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No se pudo abrir Google Sheets'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['error'] ?? 'Error abriendo Google Sheets'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _compartirGoogleSheets() async {
-    try {
-      final result = await FeelinPayService.compartirGoogleSheets();
-      if (result['success']) {
-        final url = result['url'];
-        if (await canLaunchUrl(Uri.parse(url))) {
-          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('No se pudo abrir el enlace de compartir'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['error'] ?? 'Error obteniendo enlace de compartir',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _llenarDatosPrueba() async {
-    try {
-      final result = await FeelinPayService.llenarDatosPrueba();
-      if (result['success']) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['message'] ?? 'Datos de prueba llenados correctamente',
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['error'] ?? 'Error llenando datos de prueba',
-              ),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _crearEstructuraSheets() async {
-    try {
-      final result = await FeelinPayService.crearEstructuraSheets();
-      if (result['success']) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                result['message'] ?? 'Estructura creada correctamente',
-              ),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['error'] ?? 'Error creando estructura'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error de conexión: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _procesarPagoPrueba() async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Probar Sistema'),
         content: Text(
           _botonPruebaIlimitado
@@ -283,40 +131,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final datosPago = {
           'pagador': 'Cliente de Prueba',
           'monto': 25.0,
-          'codigoSeguridad': '123',
-          'fecha': ahora.toIso8601String().split('T')[0],
-          'hora':
-              '${ahora.hour.toString().padLeft(2, '0')}:${ahora.minute.toString().padLeft(2, '0')}:${ahora.second.toString().padLeft(2, '0')}',
+          'fecha': '${ahora.day}/${ahora.month}/${ahora.year}',
+          'hora': '${ahora.hour}:${ahora.minute.toString().padLeft(2, '0')}',
         };
 
-        final sheetsResult = await FeelinPayService.llenarAutomaticamente(
-          pagador: datosPago['pagador'] as String,
-          monto: datosPago['monto'] as double,
-          codigoSeguridad: datosPago['codigoSeguridad'] as String,
-        );
-
-        String mensaje =
-            '✅ ${result['message'] ?? 'Pago de prueba procesado correctamente'}';
-        if (sheetsResult['success']) {
-          mensaje += '\n📊 ${sheetsResult['message']}';
-          mensaje +=
-              '\n📅 Registrado: ${datosPago['fecha']} ${datosPago['hora']}';
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(mensaje),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text('Pago Procesado'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 48),
+                const SizedBox(height: 16),
+                Text('Pago de prueba procesado exitosamente'),
+                const SizedBox(height: 8),
+                Text('Pagador: ${datosPago['pagador']}'),
+                Text('Monto: \$${datosPago['monto']}'),
+                Text('Fecha: ${datosPago['fecha']}'),
+                Text('Hora: ${datosPago['hora']}'),
+              ],
+            ),
+            actions: [
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cerrar'),
+              ),
+            ],
           ),
         );
-        _verificarBotonPrueba();
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              '❌ ${result['message'] ?? 'Error procesando pago de prueba'}',
-            ),
+            content: Text(result['error'] ?? 'Error procesando pago'),
             backgroundColor: Colors.red,
           ),
         );
@@ -335,16 +185,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: const Color(0xFFF8FAFC),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(),
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF667EEA)),
+              ),
               SizedBox(height: 16),
               Text(
                 'Cargando dashboard...',
-                style: TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(color: Color(0xFF64748B), fontSize: 16),
               ),
             ],
           ),
@@ -354,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (_userInfo == null) {
       return Scaffold(
-        backgroundColor: Colors.grey[50],
+        backgroundColor: const Color(0xFFF8FAFC),
         body: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -371,53 +223,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    final rol = _userInfo!['rol'] ?? 'propietario';
-    final esSuperAdmin = rol == 'super_admin';
     final nombreUsuario = _userInfo!['nombre'] ?? 'Usuario';
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
         title: const Text(
           'Feelin Pay',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+            color: Color(0xFF1E293B),
+          ),
         ),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
         elevation: 0,
-        shadowColor: Colors.black26,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         automaticallyImplyLeading: false,
         actions: [
-          // Indicador de conectividad
+          // Indicador de conectividad mejorado
           Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: const ConnectivityIndicator(),
-          ),
-          // Botón de gestión de permisos
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.security),
-              onPressed: () {
-                Navigator.pushNamed(context, '/permissions');
-              },
-              tooltip: 'Gestión de Permisos',
+            margin: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10B981).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF10B981).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF10B981),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Conectado',
+                  style: TextStyle(
+                    color: Color(0xFF10B981),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
+          // Botón de logout mejorado
           Container(
-            margin: const EdgeInsets.only(right: 8),
+            margin: const EdgeInsets.only(right: 16),
             child: IconButton(
-              icon: const Icon(Icons.logout_rounded),
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.logout_rounded,
+                  color: Color(0xFF64748B),
+                  size: 20,
+                ),
+              ),
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (context) => AlertDialog(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     title: const Text(
                       'Cerrar Sesión',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                     content: const Text(
                       '¿Estás seguro de que quieres cerrar sesión?',
@@ -430,8 +315,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ElevatedButton(
                         onPressed: () => Navigator.pop(context, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
+                          backgroundColor: const Color(0xFFEF4444),
                           foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
                         child: const Text('Cerrar Sesión'),
                       ),
@@ -442,7 +330,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 if (confirm == true) {
                   await FeelinPayService.logout();
                   if (mounted) {
-                    Navigator.pushReplacementNamed(context, '/login');
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const LoginScreen(),
+                      ),
+                    );
                   }
                 }
               },
@@ -454,604 +347,647 @@ class _DashboardScreenState extends State<DashboardScreen> {
         builder: (context, constraints) {
           final isTablet = constraints.maxWidth > 600;
           final isDesktop = constraints.maxWidth > 900;
+          final isLargeDesktop = constraints.maxWidth > 1200;
 
-          return SingleChildScrollView(
-            padding: EdgeInsets.all(isTablet ? 24 : 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Banner de bienvenida
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Theme.of(context).primaryColor,
-                        Colors.blue.shade600,
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Theme.of(
-                          context,
-                        ).primaryColor.withValues(alpha: 0.3),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.account_circle_rounded,
-                              color: Colors.white,
-                              size: 32,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  '¡Bienvenido!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  nombreUsuario,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Sistema Anti-Fraude Yape',
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Gestión de usuarios para Super Admin
-                if (esSuperAdmin) ...[
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.admin_panel_settings,
-                                color: Colors.red.shade600,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Gestión de Usuarios',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const UserManagementScreen(),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.people_alt),
-                            label: const Text('Gestionar Usuarios'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Grid de opciones principales
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: isDesktop ? 3 : (isTablet ? 2 : 1),
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: isDesktop ? 1.5 : (isTablet ? 1.3 : 1.1),
-                  children: [
-                    // Gestión de permisos
-                    Card(
-                      elevation: 2,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
+          return _isInitialized && _fadeAnimation != null
+              ? FadeTransition(
+                  opacity: _fadeAnimation!,
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.all(isTablet ? 24.0 : 16.0),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isLargeDesktop ? 1200 : double.infinity,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.security,
-                                  color: Colors.blue.shade600,
-                                  size: 24,
+                            // Banner de bienvenida moderno
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(32),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF667EEA),
+                                    Color(0xFF764BA2),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Gestión de Permisos',
-                                    style: TextStyle(
-                                      fontSize: isTablet ? 16 : 14,
-                                      fontWeight: FontWeight.bold,
+                                borderRadius: BorderRadius.circular(24),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(
+                                      0xFF667EEA,
+                                    ).withOpacity(0.3),
+                                    spreadRadius: 0,
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 8),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 72,
+                                    height: 72,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(20),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: const Icon(
+                                      Icons.person,
+                                      color: Colors.white,
+                                      size: 36,
                                     ),
                                   ),
+                                  const SizedBox(width: 20),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          '¡Bienvenido!',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 28,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          nombreUsuario,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: -0.3,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const Text(
+                                          'Sistema Anti-Fraude Yape',
+                                          style: TextStyle(
+                                            color: Colors.white70,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            const SizedBox(height: 40),
+
+                            // Título de sección
+                            const Text(
+                              'Módulos Principales',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1E293B),
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Módulos principales con diseño moderno
+                            GridView.count(
+                              crossAxisCount: isLargeDesktop
+                                  ? 4
+                                  : (isDesktop ? 3 : (isTablet ? 2 : 1)),
+                              crossAxisSpacing: 20,
+                              mainAxisSpacing: 20,
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              childAspectRatio: isLargeDesktop
+                                  ? 1.0
+                                  : (isDesktop ? 1.1 : 1.2),
+                              children: [
+                                // Gestión de Permisos
+                                _buildModernCard(
+                                  title: 'Gestión de Permisos',
+                                  description:
+                                      'Verificar y gestionar permisos del sistema',
+                                  icon: Icons.security_rounded,
+                                  color: const Color(0xFF3B82F6),
+                                  onTap: () => _navigateToPermissions(context),
+                                  buttonText: 'Verificar Permisos',
+                                  buttonIcon: Icons.check_circle_rounded,
+                                ),
+
+                                // Gestión de Usuarios
+                                _buildModernCard(
+                                  title: 'Gestión de Usuarios',
+                                  description:
+                                      'Administrar usuarios del sistema',
+                                  icon: Icons.people_rounded,
+                                  color: const Color(0xFF8B5CF6),
+                                  onTap: () =>
+                                      _navigateToUserManagement(context),
+                                  buttonText: 'Gestionar Usuarios',
+                                  buttonIcon: Icons.people_rounded,
+                                ),
+
+                                // Sistema de Notificaciones
+                                _buildModernCard(
+                                  title: 'Notificaciones',
+                                  description:
+                                      'Gestionar alertas y notificaciones',
+                                  icon: Icons.notifications_rounded,
+                                  color: const Color(0xFF10B981),
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    '/notifications',
+                                  ),
+                                  buttonText: 'Ver Notificaciones',
+                                  buttonIcon: Icons.notifications_rounded,
+                                ),
+
+                                // Configuración del Sistema
+                                _buildModernCard(
+                                  title: 'Configuración',
+                                  description:
+                                      'Ajustes y configuración del sistema',
+                                  icon: Icons.settings_rounded,
+                                  color: const Color(0xFFF59E0B),
+                                  onTap: () =>
+                                      Navigator.pushNamed(context, '/settings'),
+                                  buttonText: 'Configurar',
+                                  buttonIcon: Icons.settings_rounded,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.pushNamed(context, '/permissions');
-                                },
-                                icon: const Icon(Icons.security),
-                                label: const Text('Verificar Permisos'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.blue,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
 
-                    // Gestión de usuarios para super admins
-                    if (rol == 'super_admin')
-                      Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.admin_panel_settings,
-                                    color: Colors.purple.shade600,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Gestión de Usuarios',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        Navigator.pushNamed(
-                                          context,
-                                          '/user-management',
-                                        );
-                                      },
-                                      icon: const Icon(Icons.people),
-                                      label: const Text('Gestionar Usuarios'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.purple,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            const SizedBox(height: 40),
 
-                    // Gestión de empleados para propietarios
-                    if (rol == 'propietario')
-                      Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.business,
-                                    color: Colors.blue.shade600,
-                                    size: 24,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  const Text(
-                                    'Gestión de Empleados',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Lista de empleados - Próximamente',
-                                            ),
-                                            backgroundColor: Colors.blue,
-                                          ),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.people),
-                                      label: const Text('Ver Empleados'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          const SnackBar(
-                                            content: Text(
-                                              'Registrar empleado - Próximamente',
-                                            ),
-                                            backgroundColor: Colors.green,
-                                          ),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.person_add),
-                                      label: const Text('Registrar Empleado'),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                        foregroundColor: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-                const SizedBox(height: 24),
-
-                // Reportes para todos los usuarios
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.analytics,
-                              color: Colors.purple.shade600,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Reportes y Estadísticas',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _abrirGoogleSheets,
-                                icon: const Icon(Icons.analytics),
-                                label: const Text('Abrir Google Sheets'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.purple,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _compartirGoogleSheets,
-                                icon: const Icon(Icons.share),
-                                label: const Text('Compartir Enlace'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _llenarDatosPrueba,
-                                icon: const Icon(Icons.data_usage),
-                                label: const Text('Llenar con Datos Prueba'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.orange,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: _crearEstructuraSheets,
-                                icon: const Icon(Icons.table_chart),
-                                label: const Text('Crear Estructura'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.teal,
-                                  foregroundColor: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Botón de prueba
-                if (_puedeUsarBotonPrueba) ...[
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.science,
-                                color: Colors.amber.shade600,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
+                            // Botón de prueba (si está disponible)
+                            if (_puedeUsarBotonPrueba) ...[
                               const Text(
                                 'Sistema de Pruebas',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: Color(0xFF1E293B),
+                                  letterSpacing: -0.5,
                                 ),
                               ),
+                              const SizedBox(height: 24),
+                              _buildTestCard(),
+                              const SizedBox(height: 40),
                             ],
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton.icon(
-                            onPressed: _procesarPagoPrueba,
-                            icon: const Icon(Icons.play_arrow),
-                            label: const Text('Probar Sistema'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.amber,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                            ),
-                          ),
-                          if (_razonBotonPrueba.isNotEmpty) ...[
-                            const SizedBox(height: 8),
-                            Text(
-                              _razonBotonPrueba,
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                ],
-
-                // Estadísticas
-                if (_estadisticas != null) ...[
-                  Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(
-                                Icons.bar_chart,
-                                color: Colors.indigo.shade600,
-                                size: 24,
-                              ),
-                              const SizedBox(width: 8),
-                              const Text(
-                                'Estadísticas',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.all(isTablet ? 24.0 : 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Banner de bienvenida moderno
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF667EEA).withOpacity(0.3),
+                              spreadRadius: 0,
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.3),
+                                  width: 1,
                                 ),
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isTablet = constraints.maxWidth > 600;
-                              return Row(
+                              child: const Icon(
+                                Icons.person,
+                                color: Colors.white,
+                                size: 36,
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      'Pagos Hoy',
-                                      '${_estadisticas?['pagosHoy'] ?? 0}',
-                                      Icons.today,
-                                      Colors.blue,
+                                  const Text(
+                                    '¡Bienvenido!',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.5,
                                     ),
                                   ),
-                                  SizedBox(width: isTablet ? 16 : 8),
-                                  Expanded(
-                                    child: _buildStatCard(
-                                      'Pagos Total',
-                                      '${_estadisticas?['pagosTotal'] ?? 0}',
-                                      Icons.payments,
-                                      Colors.green,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    nombreUsuario,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Sistema Anti-Fraude Yape',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
-                              );
-                            },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // Título de sección
+                      const Text(
+                        'Módulos Principales',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF1E293B),
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Módulos principales con diseño moderno
+                      GridView.count(
+                        crossAxisCount: isLargeDesktop
+                            ? 4
+                            : (isDesktop ? 3 : (isTablet ? 2 : 1)),
+                        crossAxisSpacing: 20,
+                        mainAxisSpacing: 20,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        childAspectRatio: isLargeDesktop
+                            ? 1.0
+                            : (isDesktop ? 1.1 : 1.2),
+                        children: [
+                          // Gestión de Permisos
+                          _buildModernCard(
+                            title: 'Gestión de Permisos',
+                            description:
+                                'Verificar y gestionar permisos del sistema',
+                            icon: Icons.security_rounded,
+                            color: const Color(0xFF3B82F6),
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/permissions'),
+                            buttonText: 'Verificar Permisos',
+                            buttonIcon: Icons.check_circle_rounded,
+                          ),
+
+                          // Gestión de Usuarios
+                          _buildModernCard(
+                            title: 'Gestión de Usuarios',
+                            description: 'Administrar usuarios del sistema',
+                            icon: Icons.people_rounded,
+                            color: const Color(0xFF8B5CF6),
+                            onTap: () => _navigateToUserManagement(context),
+                            buttonText: 'Gestionar Usuarios',
+                            buttonIcon: Icons.people_rounded,
+                          ),
+
+                          // Sistema de Notificaciones
+                          _buildModernCard(
+                            title: 'Notificaciones',
+                            description: 'Gestionar alertas y notificaciones',
+                            icon: Icons.notifications_rounded,
+                            color: const Color(0xFF10B981),
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/notifications'),
+                            buttonText: 'Ver Notificaciones',
+                            buttonIcon: Icons.notifications_rounded,
+                          ),
+
+                          // Configuración del Sistema
+                          _buildModernCard(
+                            title: 'Configuración',
+                            description: 'Ajustes y configuración del sistema',
+                            icon: Icons.settings_rounded,
+                            color: const Color(0xFFF59E0B),
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/settings'),
+                            buttonText: 'Configurar',
+                            buttonIcon: Icons.settings_rounded,
                           ),
                         ],
                       ),
-                    ),
+
+                      const SizedBox(height: 40),
+
+                      // Botón de prueba (si está disponible)
+                      if (_puedeUsarBotonPrueba) ...[
+                        const Text(
+                          'Sistema de Pruebas',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF1E293B),
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _buildTestCard(),
+                        const SizedBox(height: 40),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            ),
-          );
+                );
         },
       ),
     );
   }
 
-  Widget _buildStatCard(
-    String title,
-    String value,
-    IconData icon,
-    Color color,
-  ) {
+  Widget _buildModernCard({
+    required String title,
+    required String description,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+    required String buttonText,
+    required IconData buttonIcon,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
           ),
-          Text(title, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         ],
       ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Icon(icon, color: color, size: 28),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1E293B),
+                    letterSpacing: -0.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    color: Color(0xFF64748B),
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+                const Spacer(),
+                Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: onTap,
+                      child: Center(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(buttonIcon, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              buttonText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTestCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            spreadRadius: 0,
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.science_rounded,
+                    color: Color(0xFFF59E0B),
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                const Expanded(
+                  child: Text(
+                    'Sistema de Pruebas',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1E293B),
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _botonPruebaIlimitado
+                  ? 'Puedes usar el sistema de pruebas sin límites'
+                  : 'Solo puedes usar el sistema de pruebas una vez',
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            if (_razonBotonPrueba.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _razonBotonPrueba,
+                style: const TextStyle(
+                  color: Color(0xFFF59E0B),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Container(
+              width: double.infinity,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(12),
+                  onTap: _procesarPagoPrueba,
+                  child: const Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        SizedBox(width: 8),
+                        Text(
+                          'Probar Sistema',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Navegar a gestión de permisos
+  void _navigateToPermissions(BuildContext context) {
+    // Navegar a la pantalla de permisos del sistema
+    Navigator.pushNamed(context, '/system-permissions');
+  }
+
+  // Navegar a gestión de usuarios
+  void _navigateToUserManagement(BuildContext context) {
+    // Navegar a la pantalla de gestión de usuarios
+    Navigator.pushNamed(context, '/user-management');
+  }
+
+  // Método para mostrar diálogo de "Próximamente"
+  void _showComingSoonDialog(BuildContext context, String feature) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.construction, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Próximamente'),
+            ],
+          ),
+          content: Text(
+            'La funcionalidad "$feature" estará disponible en una próxima actualización.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text('Entendido'),
+            ),
+          ],
+        );
+      },
     );
   }
 }

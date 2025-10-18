@@ -1,18 +1,18 @@
 import 'dart:async';
 import '../database/local_database.dart';
 
-class YapeNotificationService {
+class PaymentNotificationService {
   static StreamSubscription? _subscription;
   static bool _isListening = false;
 
-  // Iniciar escucha de notificaciones de Yape
+  // Iniciar escucha de notificaciones de pagos
   static Future<void> startListening() async {
     if (_isListening) return;
 
     try {
       // Simular escucha de notificaciones (en producción se implementaría con plugins nativos)
       _isListening = true;
-      print('✅ Escuchando notificaciones de Yape');
+      print('✅ Escuchando notificaciones de pagos');
 
       // En producción, aquí se configuraría el listener real
       // _subscription = _channel.receiveBroadcastStream().listen(...)
@@ -26,7 +26,7 @@ class YapeNotificationService {
     await _subscription?.cancel();
     _subscription = null;
     _isListening = false;
-    print('⏹️ Detenida escucha de notificaciones de Yape');
+    print('⏹️ Detenida escucha de notificaciones de pagos');
   }
 
   // Obtener notificaciones pendientes

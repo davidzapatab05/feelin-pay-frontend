@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart'
     as permission_handler;
-import '../services/connectivity_service.dart';
+import 'package:http/http.dart' as http;
 import '../services/permission_service.dart';
+import '../core/config/app_config.dart';
 
 class SystemController extends ChangeNotifier {
   bool _hasInternetConnection = false;
@@ -27,15 +29,23 @@ class SystemController extends ChangeNotifier {
     _clearError();
 
     try {
-      final hasConnection = await ConnectivityService.hasInternetConnection();
-      final connectionType = await ConnectivityService.getConnectionType();
-      final isSufficient = await ConnectivityService.isConnectionSufficient();
+      print('🔍 [CONNECTIVITY] Verificando conectividad...');
+      // Simple connectivity check - try to reach the backend
+      final response = await http
+          .get(
+            Uri.parse('${AppConfig.apiBaseUrl}/health'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 5));
 
-      _hasInternetConnection = hasConnection && isSufficient;
-      _connectionType = connectionType;
+      _hasInternetConnection = response.statusCode == 200;
+      _connectionType = 'Local Network';
+      print(
+        '🔍 [CONNECTIVITY] Status: ${response.statusCode}, Connected: $_hasInternetConnection',
+      );
 
       if (!_hasInternetConnection) {
-        _setError('Sin conexión a Internet o conexión insuficiente');
+        _setError('Sin conexión a Internet');
       }
 
       notifyListeners();
@@ -92,15 +102,12 @@ class SystemController extends ChangeNotifier {
   // Obtener información del sistema
   Future<Map<String, dynamic>> getSystemInfo() async {
     try {
-      final connectionInfo = await ConnectivityService.getConnectionInfo();
-      // final permissionStatus = await PermissionService.checkPermissionStatus();
-
       return {
         'connectivity': {
           'hasConnection': _hasInternetConnection,
           'connectionType': _connectionType,
-          'responseTime': connectionInfo['responseTime'],
-          'isStable': connectionInfo['isStable'],
+          'responseTime': 'N/A',
+          'isStable': _hasInternetConnection,
         },
         'permissions': {
           'notifications': _hasNotificationPermission,
@@ -119,7 +126,8 @@ class SystemController extends ChangeNotifier {
 
   // Escuchar cambios de conectividad
   void startConnectivityListener() {
-    ConnectivityService.connectivityStream.listen((results) async {
+    // Simple connectivity listener - check periodically
+    Timer.periodic(const Duration(seconds: 30), (timer) async {
       await checkInternetConnection();
     });
   }

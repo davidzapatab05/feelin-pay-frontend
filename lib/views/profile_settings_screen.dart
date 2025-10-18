@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/feelin_pay_service.dart';
 
 class ProfileSettingsScreen extends StatefulWidget {
-  const ProfileSettingsScreen({Key? key}) : super(key: key);
+  const ProfileSettingsScreen({super.key});
 
   @override
   State<ProfileSettingsScreen> createState() => _ProfileSettingsScreenState();

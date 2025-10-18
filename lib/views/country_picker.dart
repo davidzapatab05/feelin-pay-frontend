@@ -17,12 +17,14 @@ class Country {
 class CountryPicker extends StatefulWidget {
   final String? initialCountry;
   final Function(Country) onCountrySelected;
+  final bool showHeader;
 
   const CountryPicker({
-    Key? key,
+    super.key,
     this.initialCountry,
     required this.onCountrySelected,
-  }) : super(key: key);
+    this.showHeader = true,
+  });
 
   @override
   State<CountryPicker> createState() => _CountryPickerState();
@@ -80,80 +82,79 @@ class _CountryPickerState extends State<CountryPicker> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        height: 500,
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Título
-            Row(
-              children: [
-                const Icon(Icons.public, color: Colors.blue),
-                const SizedBox(width: 8),
-                const Text(
-                  'Seleccionar País',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Barra de búsqueda
-            TextField(
-              controller: searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar país...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+    return Column(
+      children: [
+        // Título (solo si showHeader es true)
+        if (widget.showHeader) ...[
+          Row(
+            children: [
+              const Icon(Icons.public, color: Colors.blue),
+              const SizedBox(width: 8),
+              const Text(
+                'Seleccionar País',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
-              onChanged: _filterCountries,
-            ),
-            const SizedBox(height: 16),
-
-            // Lista de países
-            Expanded(
-              child: ListView.builder(
-                itemCount: filteredCountries.length,
-                itemBuilder: (context, index) {
-                  final country = filteredCountries[index];
-                  return ListTile(
-                    leading: Text(
-                      country.flag,
-                      style: const TextStyle(fontSize: 24),
-                    ),
-                    title: Text(country.name),
-                    subtitle: Text('${country.dialCode} (${country.code})'),
-                    trailing: Text(
-                      country.dialCode,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    onTap: () {
-                      widget.onCountrySelected(country);
-                      Navigator.pop(context);
-                    },
-                  );
-                },
+              const Spacer(),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Barra de búsqueda
+        TextField(
+          controller: searchController,
+          decoration: InputDecoration(
+            hintText: 'Buscar país...',
+            prefixIcon: const Icon(Icons.search),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
             ),
-          ],
+          ),
+          onChanged: _filterCountries,
         ),
-      ),
+        const SizedBox(height: 16),
+
+        // Lista de países
+        Expanded(
+          child: ListView.builder(
+            itemCount: filteredCountries.length,
+            itemBuilder: (context, index) {
+              final country = filteredCountries[index];
+              return ListTile(
+                title: Text(country.name),
+                subtitle: Text('${country.dialCode} (${country.code})'),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF667EEA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    country.dialCode,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+                onTap: () {
+                  widget.onCountrySelected(country);
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -164,11 +165,11 @@ class CountrySelector extends StatelessWidget {
   final String hintText;
 
   const CountrySelector({
-    Key? key,
+    super.key,
     this.selectedCountry,
     required this.onCountrySelected,
     this.hintText = 'País',
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +223,7 @@ class CountryDisplay extends StatelessWidget {
   final Country? country;
   final Function()? onTap;
 
-  const CountryDisplay({Key? key, this.country, this.onTap}) : super(key: key);
+  const CountryDisplay({super.key, this.country, this.onTap});
 
   @override
   Widget build(BuildContext context) {
