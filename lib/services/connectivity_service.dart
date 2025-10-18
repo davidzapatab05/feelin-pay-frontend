@@ -1,169 +1,135 @@
-import 'dart:async';
-import 'package:http/http.dart' as http;
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:internet_connection_checker/internet_connection_checker.dart';
 
 class ConnectivityService {
-  static const String _testUrl = 'https://www.google.com';
-  static const Duration _timeout = Duration(seconds: 5);
+  static final Connectivity _connectivity = Connectivity();
+  static final InternetConnectionChecker _connectionChecker =
+      InternetConnectionChecker();
 
-  static StreamController<bool>? _connectivityController;
-  static Stream<bool>? _connectivityStream;
-  static Timer? _connectivityTimer;
-  static bool _lastConnectivityStatus = false;
-
-  /// Inicializar servicio de conectividad
-  static Future<bool> initialize() async {
-    try {
-      print('🌐 Inicializando servicio de conectividad...');
-
-      // Configurar stream de conectividad
-      _connectivityController = StreamController<bool>.broadcast();
-      _connectivityStream = _connectivityController!.stream;
-
-      // Verificar conectividad inicial
-      final hasInternet = await checkInternetConnection();
-      _lastConnectivityStatus = hasInternet;
-
-      // Iniciar monitoreo periódico
-      _startConnectivityMonitoring();
-
-      print('✅ Servicio de conectividad inicializado');
-      return true;
-    } catch (e) {
-      print('❌ Error al inicializar servicio de conectividad: $e');
-      return false;
-    }
-  }
-
-  /// Verificar conexión a internet
-  static Future<bool> checkInternetConnection() async {
-    try {
-      // Intentar hacer una petición HTTP simple
-      final response = await http.get(Uri.parse(_testUrl)).timeout(_timeout);
-
-      final hasInternet = response.statusCode == 200;
-
-      // Notificar cambio de estado
-      if (hasInternet != _lastConnectivityStatus) {
-        _lastConnectivityStatus = hasInternet;
-        _connectivityController?.add(hasInternet);
-
-        if (hasInternet) {
-          print('✅ Conexión a internet restaurada');
-        } else {
-          print('⚠️ Conexión a internet perdida');
-        }
-      }
-
-      return hasInternet;
-    } catch (e) {
-      print('❌ Sin conexión a internet: $e');
-
-      // Notificar pérdida de conexión
-      if (_lastConnectivityStatus) {
-        _lastConnectivityStatus = false;
-        _connectivityController?.add(false);
-        print('⚠️ Conexión a internet perdida');
-      }
-
-      return false;
-    }
-  }
-
-  /// Iniciar monitoreo de conectividad
-  static void _startConnectivityMonitoring() {
-    _connectivityTimer = Timer.periodic(Duration(seconds: 30), (timer) async {
-      await checkInternetConnection();
-    });
-  }
-
-  /// Detener monitoreo de conectividad
-  static void stopConnectivityMonitoring() {
-    _connectivityTimer?.cancel();
-    _connectivityTimer = null;
-    print('⏹️ Monitoreo de conectividad detenido');
-  }
-
-  /// Obtener stream de conectividad
-  static Stream<bool>? get connectivityStream => _connectivityStream;
-
-  /// Verificar si hay conexión actual
-  static bool get isConnected => _lastConnectivityStatus;
-
-  /// Verificar conectividad con timeout personalizado
-  static Future<bool> checkConnectionWithTimeout(Duration timeout) async {
-    try {
-      final response = await http.get(Uri.parse(_testUrl)).timeout(timeout);
-
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Verificar conectividad a un servidor específico
-  static Future<bool> checkConnectionToServer(String url) async {
-    try {
-      final response = await http.get(Uri.parse(url)).timeout(_timeout);
-
-      return response.statusCode == 200;
-    } catch (e) {
-      print('❌ Error al conectar con $url: $e');
-      return false;
-    }
-  }
-
-  /// Verificar si el usuario tiene internet (requisito para la app)
-  static Future<bool> hasInternetForApp() async {
+  // Verificar si hay conexión a Internet
+  static Future<bool> hasInternetConnection() async {
     try {
       // Verificar conectividad básica
-      final hasInternet = await checkInternetConnection();
+      final connectivityResults = await _connectivity.checkConnectivity();
 
-      if (!hasInternet) {
-        print('⚠️ Usuario no tiene conexión a internet');
-        print(
-          '📱 La aplicación requiere internet para funcionar correctamente',
-        );
+      if (connectivityResults.isEmpty ||
+          connectivityResults.first == ConnectivityResult.none) {
         return false;
       }
 
-      print('✅ Usuario tiene conexión a internet');
-      return true;
+      // Verificar conexión real a Internet
+      final hasConnection = await _connectionChecker.hasConnection;
+      return hasConnection;
     } catch (e) {
-      print('❌ Error al verificar internet del usuario: $e');
+      print('Error verificando conectividad: $e');
       return false;
     }
   }
 
-  /// Obtener información de conectividad
-  static Future<Map<String, dynamic>> getConnectivityInfo() async {
+  // Verificar tipo de conexión
+  static Future<String> getConnectionType() async {
     try {
-      final hasInternet = await checkInternetConnection();
+      final connectivityResults = await _connectivity.checkConnectivity();
+
+      if (connectivityResults.isEmpty) {
+        return 'No Connection';
+      }
+
+      // Tomar el primer resultado
+      final connectivityResult = connectivityResults.first;
+
+      switch (connectivityResult) {
+        case ConnectivityResult.wifi:
+          return 'WiFi';
+        case ConnectivityResult.mobile:
+          return 'Mobile Data';
+        case ConnectivityResult.ethernet:
+          return 'Ethernet';
+        case ConnectivityResult.bluetooth:
+          return 'Bluetooth';
+        case ConnectivityResult.vpn:
+          return 'VPN';
+        case ConnectivityResult.other:
+          return 'Other';
+        case ConnectivityResult.none:
+          return 'No Connection';
+      }
+    } catch (e) {
+      print('Error obteniendo tipo de conexión: $e');
+      return 'Unknown';
+    }
+  }
+
+  // Escuchar cambios de conectividad
+  static Stream<List<ConnectivityResult>> get connectivityStream {
+    return _connectivity.onConnectivityChanged;
+  }
+
+  // Verificar si la conexión es estable
+  static Future<bool> isConnectionStable() async {
+    try {
+      // Verificar múltiples veces para asegurar estabilidad
+      for (int i = 0; i < 3; i++) {
+        final hasConnection = await _connectionChecker.hasConnection;
+        if (!hasConnection) {
+          return false;
+        }
+        await Future.delayed(Duration(seconds: 1));
+      }
+      return true;
+    } catch (e) {
+      print('Error verificando estabilidad de conexión: $e');
+      return false;
+    }
+  }
+
+  // Verificar velocidad de conexión (básica)
+  static Future<Map<String, dynamic>> getConnectionInfo() async {
+    try {
+      final startTime = DateTime.now();
+      final hasConnection = await _connectionChecker.hasConnection;
+      final endTime = DateTime.now();
+
+      final responseTime = endTime.difference(startTime).inMilliseconds;
+      final connectionType = await getConnectionType();
 
       return {
-        'hasInternet': hasInternet,
-        'lastCheck': DateTime.now().toIso8601String(),
-        'testUrl': _testUrl,
-        'timeout': _timeout.inSeconds,
+        'hasConnection': hasConnection,
+        'connectionType': connectionType,
+        'responseTime': responseTime,
+        'isStable': responseTime < 3000, // Menos de 3 segundos es estable
       };
     } catch (e) {
+      print('Error obteniendo información de conexión: $e');
       return {
-        'hasInternet': false,
-        'error': e.toString(),
-        'lastCheck': DateTime.now().toIso8601String(),
+        'hasConnection': false,
+        'connectionType': 'Unknown',
+        'responseTime': -1,
+        'isStable': false,
       };
     }
   }
 
-  /// Detener servicio de conectividad
-  static Future<void> stop() async {
+  // Verificar si la conexión es suficiente para la aplicación
+  static Future<bool> isConnectionSufficient() async {
     try {
-      stopConnectivityMonitoring();
-      await _connectivityController?.close();
-      _connectivityController = null;
-      _connectivityStream = null;
-      print('⏹️ Servicio de conectividad detenido');
+      final connectionInfo = await getConnectionInfo();
+
+      // Verificar que hay conexión y es estable
+      if (!connectionInfo['hasConnection'] || !connectionInfo['isStable']) {
+        return false;
+      }
+
+      // Verificar que no es solo Bluetooth (insuficiente para la app)
+      final connectionType = connectionInfo['connectionType'];
+      if (connectionType == 'Bluetooth' || connectionType == 'No Connection') {
+        return false;
+      }
+
+      return true;
     } catch (e) {
-      print('❌ Error al detener servicio de conectividad: $e');
+      print('Error verificando suficiencia de conexión: $e');
+      return false;
     }
   }
 }

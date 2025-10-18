@@ -1,259 +1,220 @@
-import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
-import 'connectivity_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class PermissionService {
-  /// Verificar y solicitar todos los permisos necesarios
-  static Future<Map<String, bool>> requestAllPermissions() async {
+  static final FlutterLocalNotificationsPlugin _notifications =
+      FlutterLocalNotificationsPlugin();
+
+  // Verificar y solicitar permisos necesarios
+  static Future<Map<String, bool>> checkAndRequestPermissions() async {
     final results = <String, bool>{};
 
-    try {
-      // Permisos básicos
-      results['notification'] = await _requestNotificationPermission();
-      results['internet'] = await _requestInternetPermission();
+    // 1. Permisos de notificaciones
+    results['notifications'] = await _requestNotificationPermission();
+
+    // 2. Permisos específicos por plataforma
+    if (Platform.isAndroid) {
       results['sms'] = await _requestSMSPermission();
-
-      // Permisos específicos de plataforma
-      if (Platform.isAndroid) {
-        results['systemAlert'] = await _requestSystemAlertPermission();
-        results['notificationListener'] =
-            await _requestNotificationListenerPermission();
-        results['backgroundLocation'] =
-            await _requestBackgroundLocationPermission();
-        results['foregroundService'] =
-            await _requestForegroundServicePermission();
-      } else if (Platform.isIOS) {
-        results['criticalAlerts'] = await _requestCriticalAlertsPermission();
-        results['backgroundAppRefresh'] =
-            await _requestBackgroundAppRefreshPermission();
-      }
-
-      print('📋 Resultados de permisos: $results');
-      return results;
-    } catch (e) {
-      print('❌ Error al solicitar permisos: $e');
-      return results;
+      results['phone'] = await _requestPhonePermission();
+      results['storage'] = await _requestStoragePermission();
+    } else if (Platform.isIOS) {
+      results['sms'] = await _requestSMSPermission();
+      results['contacts'] = await _requestContactsPermission();
     }
+
+    return results;
   }
 
-  /// Verificar estado de todos los permisos
-  static Future<Map<String, PermissionStatus>> checkAllPermissions() async {
-    final statuses = <String, PermissionStatus>{};
-
-    try {
-      statuses['notification'] = await Permission.notification.status;
-      statuses['internet'] =
-          await Permission.phone.status; // Para verificar conectividad
-      statuses['sms'] = await Permission.sms.status;
-
-      if (Platform.isAndroid) {
-        statuses['systemAlert'] = await Permission.systemAlertWindow.status;
-        statuses['notificationListener'] = await Permission.notification.status;
-        statuses['backgroundLocation'] = await Permission.locationAlways.status;
-        statuses['foregroundService'] = await Permission.notification.status;
-      } else if (Platform.isIOS) {
-        statuses['criticalAlerts'] = await Permission.notification.status;
-        statuses['backgroundAppRefresh'] = await Permission.notification.status;
-      }
-
-      return statuses;
-    } catch (e) {
-      print('❌ Error al verificar permisos: $e');
-      return statuses;
-    }
-  }
-
-  /// Solicitar permiso de notificaciones
+  // Solicitar permisos de notificaciones
   static Future<bool> _requestNotificationPermission() async {
     try {
-      final status = await Permission.notification.request();
-      return status.isGranted;
+      // Configurar notificaciones locales
+      const androidSettings = AndroidInitializationSettings(
+        '@mipmap/ic_launcher',
+      );
+      const iosSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+
+      const initSettings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
+      );
+
+      await _notifications.initialize(initSettings);
+
+      // Solicitar permisos
+      final permission = await Permission.notification.request();
+      return permission.isGranted;
     } catch (e) {
-      print('❌ Error al solicitar permiso de notificaciones: $e');
+      print('Error solicitando permisos de notificación: $e');
       return false;
     }
   }
 
-  /// Verificar conectividad a internet (sin permisos)
-  static Future<bool> _requestInternetPermission() async {
-    try {
-      // Solo verificar conectividad, no solicitar permisos
-      return await _checkInternetConnectivity();
-    } catch (e) {
-      print('❌ Error al verificar conectividad: $e');
-      return false;
-    }
-  }
-
-  /// Verificar conectividad a internet
-  static Future<bool> _checkInternetConnectivity() async {
-    try {
-      // Usar el servicio de conectividad
-      return await ConnectivityService.hasInternetForApp();
-    } catch (e) {
-      print('❌ Error al verificar conectividad: $e');
-      return false;
-    }
-  }
-
-  /// Solicitar permiso de SMS
+  // Solicitar permisos de SMS (Android)
   static Future<bool> _requestSMSPermission() async {
     try {
-      final status = await Permission.sms.request();
-      return status.isGranted;
+      if (Platform.isAndroid) {
+        // Permisos específicos de Android para SMS
+        final smsPermission = await Permission.sms.request();
+
+        return smsPermission.isGranted;
+      } else if (Platform.isIOS) {
+        // En iOS, los permisos de SMS se manejan automáticamente
+        // pero necesitamos verificar que el dispositivo puede enviar SMS
+        return await _canSendSMS();
+      }
+      return false;
     } catch (e) {
-      print('❌ Error al solicitar permiso de SMS: $e');
+      print('Error solicitando permisos de SMS: $e');
       return false;
     }
   }
 
-  /// Solicitar permiso de ventana del sistema (Android)
-  static Future<bool> _requestSystemAlertPermission() async {
+  // Verificar si se puede enviar SMS (iOS)
+  static Future<bool> _canSendSMS() async {
     try {
-      final status = await Permission.systemAlertWindow.request();
-      return status.isGranted;
+      // En iOS, verificar si el dispositivo puede enviar SMS
+      // Esto se hace a través de la configuración del dispositivo
+      return true; // Por ahora asumimos que sí
     } catch (e) {
-      print('❌ Error al solicitar permiso de ventana del sistema: $e');
+      print('Error verificando capacidad de SMS: $e');
       return false;
     }
   }
 
-  /// Solicitar permiso de listener de notificaciones (Android)
-  static Future<bool> _requestNotificationListenerPermission() async {
+  // Solicitar permisos de teléfono (Android)
+  static Future<bool> _requestPhonePermission() async {
     try {
-      // Este permiso se debe configurar manualmente en Android
-      // Abrir configuración de accesibilidad
+      if (Platform.isAndroid) {
+        final permission = await Permission.phone.request();
+        return permission.isGranted;
+      }
+      return true; // No necesario en iOS
+    } catch (e) {
+      print('Error solicitando permisos de teléfono: $e');
+      return false;
+    }
+  }
+
+  // Solicitar permisos de almacenamiento (Android)
+  static Future<bool> _requestStoragePermission() async {
+    try {
+      if (Platform.isAndroid) {
+        final permission = await Permission.storage.request();
+        return permission.isGranted;
+      }
+      return true; // No necesario en iOS
+    } catch (e) {
+      print('Error solicitando permisos de almacenamiento: $e');
+      return false;
+    }
+  }
+
+  // Solicitar permisos de contactos (iOS)
+  static Future<bool> _requestContactsPermission() async {
+    try {
+      if (Platform.isIOS) {
+        final permission = await Permission.contacts.request();
+        return permission.isGranted;
+      }
+      return true; // No necesario en Android
+    } catch (e) {
+      print('Error solicitando permisos de contactos: $e');
+      return false;
+    }
+  }
+
+  // Verificar estado de permisos
+  static Future<Map<String, PermissionStatus>> checkPermissionStatus() async {
+    final status = <String, PermissionStatus>{};
+
+    status['notifications'] = await Permission.notification.status;
+
+    if (Platform.isAndroid) {
+      status['sms'] = await Permission.sms.status;
+      status['phone'] = await Permission.phone.status;
+      status['storage'] = await Permission.storage.status;
+    } else if (Platform.isIOS) {
+      status['contacts'] = await Permission.contacts.status;
+    }
+
+    return status;
+  }
+
+  // Abrir configuración de la aplicación
+  static Future<void> openAppSettings() async {
+    try {
       await openAppSettings();
-      return false; // Se debe verificar manualmente
     } catch (e) {
-      print('❌ Error al solicitar permiso de listener de notificaciones: $e');
-      return false;
+      print('Error abriendo configuración de la aplicación: $e');
     }
   }
 
-  /// Solicitar permiso de ubicación en segundo plano (Android)
-  static Future<bool> _requestBackgroundLocationPermission() async {
+  // Verificar si todos los permisos necesarios están concedidos
+  static Future<bool> areAllPermissionsGranted() async {
     try {
-      final status = await Permission.locationAlways.request();
-      return status.isGranted;
-    } catch (e) {
-      print('❌ Error al solicitar permiso de ubicación en segundo plano: $e');
-      return false;
-    }
-  }
+      final status = await checkPermissionStatus();
 
-  /// Solicitar permiso de servicio en primer plano (Android)
-  static Future<bool> _requestForegroundServicePermission() async {
-    try {
-      // En Android 10+, se requiere permiso para servicios en primer plano
-      final status = await Permission.notification.request();
-      return status.isGranted;
-    } catch (e) {
-      print('❌ Error al solicitar permiso de servicio en primer plano: $e');
-      return false;
-    }
-  }
+      // Verificar notificaciones
+      if (status['notifications'] != PermissionStatus.granted) {
+        return false;
+      }
 
-  /// Solicitar permiso de alertas críticas (iOS)
-  static Future<bool> _requestCriticalAlertsPermission() async {
-    try {
-      final status = await Permission.notification.request();
-      return status.isGranted;
-    } catch (e) {
-      print('❌ Error al solicitar permiso de alertas críticas: $e');
-      return false;
-    }
-  }
-
-  /// Solicitar permiso de actualización en segundo plano (iOS)
-  static Future<bool> _requestBackgroundAppRefreshPermission() async {
-    try {
-      // En iOS, esto se configura en Configuración > General > Actualización en segundo plano
-      await openAppSettings();
-      return false; // Se debe verificar manualmente
-    } catch (e) {
-      print(
-        '❌ Error al solicitar permiso de actualización en segundo plano: $e',
-      );
-      return false;
-    }
-  }
-
-  /// Verificar si todos los permisos críticos están concedidos
-  static Future<bool> areCriticalPermissionsGranted() async {
-    try {
-      final statuses = await checkAllPermissions();
-
-      // Permisos críticos
-      final criticalPermissions = ['notification', 'internet', 'sms'];
-
-      for (final permission in criticalPermissions) {
-        if (statuses[permission] != PermissionStatus.granted) {
+      // Verificar permisos específicos por plataforma
+      if (Platform.isAndroid) {
+        if (status['sms'] != PermissionStatus.granted ||
+            status['phone'] != PermissionStatus.granted ||
+            status['storage'] != PermissionStatus.granted) {
+          return false;
+        }
+      } else if (Platform.isIOS) {
+        if (status['contacts'] != PermissionStatus.granted) {
           return false;
         }
       }
 
       return true;
     } catch (e) {
-      print('❌ Error al verificar permisos críticos: $e');
+      print('Error verificando permisos: $e');
       return false;
     }
   }
 
-  /// Obtener información del dispositivo
-  static Future<Map<String, dynamic>> getDeviceInfo() async {
-    try {
-      if (Platform.isAndroid) {
-        return {
-          'platform': 'Android',
-          'version': 'Unknown',
-          'sdkInt': 0,
-          'model': 'Unknown',
-          'brand': 'Unknown',
-        };
-      } else if (Platform.isIOS) {
-        return {
-          'platform': 'iOS',
-          'version': 'Unknown',
-          'model': 'Unknown',
-          'name': 'Unknown',
-        };
+  // Obtener mensaje de error para permisos faltantes
+  static String getPermissionErrorMessage(
+    Map<String, PermissionStatus> status,
+  ) {
+    final missingPermissions = <String>[];
+
+    if (status['notifications'] != PermissionStatus.granted) {
+      missingPermissions.add('Notificaciones');
+    }
+
+    if (Platform.isAndroid) {
+      if (status['sms'] != PermissionStatus.granted) {
+        missingPermissions.add('SMS');
       }
-
-      return {'platform': 'Unknown'};
-    } catch (e) {
-      print('❌ Error al obtener información del dispositivo: $e');
-      return {'platform': 'Unknown', 'error': e.toString()};
-    }
-  }
-
-  /// Abrir configuración de la aplicación
-  static Future<void> openAppSettings() async {
-    try {
-      await openAppSettings();
-    } catch (e) {
-      print('❌ Error al abrir configuración: $e');
-    }
-  }
-
-  /// Verificar si la aplicación puede ejecutarse en segundo plano
-  static Future<bool> canRunInBackground() async {
-    try {
-      final deviceInfo = await getDeviceInfo();
-
-      if (Platform.isAndroid) {
-        final sdkInt = deviceInfo['sdkInt'] as int? ?? 0;
-        // Android 8.0+ requiere permisos especiales para ejecutar en segundo plano
-        return sdkInt >= 26;
-      } else if (Platform.isIOS) {
-        // iOS requiere configuración especial para ejecutar en segundo plano
-        return true;
+      if (status['phone'] != PermissionStatus.granted) {
+        missingPermissions.add('Teléfono');
       }
-
-      return false;
-    } catch (e) {
-      print('❌ Error al verificar capacidad de ejecución en segundo plano: $e');
-      return false;
+      if (status['storage'] != PermissionStatus.granted) {
+        missingPermissions.add('Almacenamiento');
+      }
+    } else if (Platform.isIOS) {
+      if (status['contacts'] != PermissionStatus.granted) {
+        missingPermissions.add('Contactos');
+      }
     }
+
+    if (missingPermissions.isEmpty) {
+      return 'Todos los permisos están concedidos';
+    }
+
+    return 'Permisos faltantes: ${missingPermissions.join(', ')}';
   }
 }

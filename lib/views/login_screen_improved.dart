@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:form_validator/form_validator.dart';
 import '../services/feelin_pay_service.dart';
-import '../widgets/country_picker.dart';
+import 'country_picker.dart';
 import '../utils/string_utils.dart';
 import 'dashboard_improved.dart';
 import 'password_recovery_screen.dart';
@@ -71,11 +71,24 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (result['success']) {
-        if (mounted) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
-          );
+        // Verificar si necesita OTP
+        if (result.containsKey('requiresOTP') &&
+            result['requiresOTP'] == true) {
+          if (mounted) {
+            // Redirigir a verificación OTP
+            Navigator.pushNamed(
+              context,
+              '/login-otp',
+              arguments: {'email': email},
+            );
+          }
+        } else {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            );
+          }
         }
       } else {
         if (mounted) {

@@ -1,11 +1,24 @@
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'screens/login_screen_improved.dart';
-import 'screens/dashboard_improved.dart';
-import 'screens/password_recovery_screen.dart';
-import 'screens/otp_verification_screen.dart';
-import 'services/feelin_pay_service.dart';
+import 'package:provider/provider.dart';
+import 'views/login_screen_improved.dart';
+import 'views/dashboard_improved.dart';
+import 'views/password_recovery_screen.dart';
+import 'views/otp_verification_screen.dart';
+import 'views/system_check_screen.dart';
+import 'views/permissions_management_screen.dart';
+import 'views/login_otp_verification_screen.dart';
+import 'views/user_management_screen.dart';
+import 'controllers/auth_controller.dart';
+import 'controllers/dashboard_controller.dart';
+import 'controllers/notification_controller.dart';
+import 'controllers/system_controller.dart';
+import 'widgets/route_guard.dart';
+import 'services/yape_notification_service.dart';
+import 'services/sms_service.dart';
+import 'services/background_service.dart';
+import 'database/local_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +29,14 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
+  // Inicializar base de datos local
+  await LocalDatabase.database;
+
+  // Iniciar servicios
+  await YapeNotificationService.startListening();
+  await SMSService.procesarSMSPendientes();
+  await BackgroundService.start();
+
   runApp(const MyApp());
 }
 
@@ -24,35 +45,66 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Feelin Pay',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),
-      home: const AuthWrapper(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/dashboard': (context) => const DashboardScreen(),
-        '/password-recovery': (context) => const PasswordRecoveryScreen(),
-      },
-      onGenerateRoute: (settings) {
-        if (settings.name == '/otp-verification') {
-          final args = settings.arguments as Map<String, dynamic>?;
-          if (args != null) {
-            return MaterialPageRoute(
-              builder: (context) => OtpVerificationScreen(
-                email: args['email'] ?? '',
-                userId: args['userId'] ?? '',
-              ),
-            );
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthController()),
+        ChangeNotifierProvider(create: (_) => DashboardController()),
+        ChangeNotifierProvider(create: (_) => NotificationController()),
+        ChangeNotifierProvider(create: (_) => SystemController()),
+      ],
+      child: MaterialApp(
+        title: 'Feelin Pay',
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+          useMaterial3: true,
+        ),
+        home: const LoginScreen(),
+        routes: {
+          '/login': (context) => const LoginScreen(),
+          // Rutas protegidas (requieren autenticación y verificación)
+          '/dashboard': (context) =>
+              RouteGuard(route: '/dashboard', child: const DashboardScreen()),
+          '/password-recovery': (context) => const PasswordRecoveryScreen(),
+          '/system-check': (context) => RouteGuard(
+            route: '/system-check',
+            child: const SystemCheckScreen(),
+          ),
+          '/permissions': (context) => RouteGuard(
+            route: '/permissions',
+            child: const PermissionsManagementScreen(),
+          ),
+
+          // Rutas de super admin
+          '/user-management': (context) => RouteGuard(
+            route: '/user-management',
+            child: const UserManagementScreen(),
+          ),
+
+          '/login-otp': (context) {
+            final args =
+                ModalRoute.of(context)!.settings.arguments
+                    as Map<String, dynamic>;
+            return LoginOTPVerificationScreen(email: args['email']);
+          },
+        },
+        onGenerateRoute: (settings) {
+          if (settings.name == '/otp-verification') {
+            final args = settings.arguments as Map<String, dynamic>?;
+            if (args != null) {
+              return MaterialPageRoute(
+                builder: (context) => OtpVerificationScreen(
+                  email: args['email'] ?? '',
+                  userId: args['userId'] ?? '',
+                ),
+              );
+            }
           }
-        }
-        return null;
-      },
-      onUnknownRoute: (settings) {
-        return MaterialPageRoute(builder: (context) => const LoginScreen());
-      },
+          return null;
+        },
+        onUnknownRoute: (settings) {
+          return MaterialPageRoute(builder: (context) => const LoginScreen());
+        },
+      ),
     );
   }
 }
@@ -65,55 +117,42 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isLoading = true;
-  bool _isLoggedIn = false;
-
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSystemAndAuth();
+    });
   }
 
-  Future<void> _checkAuthStatus() async {
-    try {
-      final isLoggedIn = await FeelinPayService.isLoggedIn();
+  Future<void> _checkSystemAndAuth() async {
+    final systemController = context.read<SystemController>();
+    final authController = context.read<AuthController>();
 
-      if (isLoggedIn) {
-        // Verificar que el perfil del usuario se pueda cargar correctamente
-        final profileResult = await FeelinPayService.getProfile();
-        if (profileResult.containsKey('error') ||
-            profileResult.containsKey('user') == false) {
-          // Si hay error cargando el perfil, limpiar datos y mostrar login
-          await FeelinPayService.logout();
-          setState(() {
-            _isLoggedIn = false;
-            _isLoading = false;
-          });
-          return;
-        }
-      }
+    // Iniciar listener de conectividad
+    systemController.startConnectivityListener();
 
-      setState(() {
-        _isLoggedIn = isLoggedIn;
-        _isLoading = false;
-      });
-    } catch (e) {
-      // En caso de error, limpiar datos y mostrar login
-      await FeelinPayService.logout();
-      setState(() {
-        _isLoggedIn = false;
-        _isLoading = false;
-      });
-    }
+    // Verificar autenticación
+    await authController.checkAuthStatus();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
+    return Consumer2<AuthController, SystemController>(
+      builder: (context, authController, systemController, child) {
+        if (authController.isLoading ||
+            systemController.isCheckingConnectivity ||
+            systemController.isCheckingPermissions) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
 
-    return _isLoggedIn ? const DashboardScreen() : const LoginScreen();
+        return authController.isLoggedIn
+            ? const DashboardScreen()
+            : const LoginScreen();
+      },
+    );
   }
 }
 

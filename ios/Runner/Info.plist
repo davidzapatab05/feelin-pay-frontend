@@ -45,5 +45,38 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Permisos para notificaciones y segundo plano -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>background-processing</string>
+		<string>remote-notification</string>
+		<string>background-fetch</string>
+		<string>background-app-refresh</string>
+	</array>
+	
+	<!-- Permisos para acceso a notificaciones del sistema -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Esta aplicación necesita acceso a las notificaciones del sistema para detectar pagos de Yape automáticamente.</string>
+	
+	<!-- Permisos para SMS -->
+	<key>NSContactsUsageDescription</key>
+	<string>Esta aplicación necesita acceso a los contactos para enviar SMS de confirmación de pagos.</string>
+	
+	<!-- Permisos para notificaciones -->
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Esta aplicación necesita enviar notificaciones para informar sobre pagos recibidos.</string>
+	
+	<!-- Configuración de red -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
+	
+	<!-- Configuración para notificaciones locales -->
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	
 </dict>
 </plist>
