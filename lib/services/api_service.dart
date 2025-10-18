@@ -1,16 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/user_model.dart';
+import '../core/config/app_config.dart';
 
 /// API Service - Servicio simple para comunicación con backend
 class ApiService {
-  static const String baseUrl = 'http://localhost:3001/api';
+  static const String baseUrl = AppConfig.apiBaseUrl;
 
   // Headers
-  Map<String, String> get _headers => {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-  };
+  Map<String, String> get _headers => AppConfig.defaultHeaders;
 
   /// Obtener token almacenado
   Future<String?> getStoredToken() async {

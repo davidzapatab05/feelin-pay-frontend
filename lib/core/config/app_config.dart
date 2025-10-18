@@ -1,9 +1,17 @@
-/// Constantes de la aplicación
-class AppConstants {
+import 'package:flutter/foundation.dart';
+
+/// Configuración de la aplicación
+class AppConfig {
   // Configuración del servidor backend
-  static const String baseUrl = String.fromEnvironment(
+  static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://localhost:3001/api',
+  );
+
+  // Configuración de CORS (para desarrollo)
+  static const String corsOrigin = String.fromEnvironment(
+    'CORS_ORIGIN',
+    defaultValue: 'http://localhost:3000',
   );
 
   // Configuración de timeout
@@ -35,10 +43,6 @@ class AppConstants {
   // Configuración de paginación
   static const int defaultPageSize = 20;
   static const int maxPageSize = 100;
-
-  // Configuración de archivos
-  static const int maxFileSizeMB = 10;
-  static const List<String> allowedImageTypes = ['jpg', 'jpeg', 'png', 'gif'];
 
   // Configuración de logs
   static const bool enableDebugLogs = bool.fromEnvironment(
@@ -104,4 +108,55 @@ class AppConstants {
   static const String phoneRegex = r'^[0-9+\-\s()]+$';
   static const String nameRegex = r'^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$';
   static const String passwordRegex = r'^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$';
+
+  // Configuración de red
+  static const Map<String, String> networkHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'User-Agent': 'FeelinPay-Mobile/1.0.0',
+  };
+
+  // Configuración de seguridad
+  static const bool enableCertificatePinning = false;
+  static const bool enableSSLVerification = true;
+  static const bool enableNetworkSecurity = true;
+
+  // Configuración de caché
+  static const Duration cacheTimeout = Duration(minutes: 5);
+  static const int maxCacheSize = 100; // MB
+  static const bool enableCache = true;
+
+  // Configuración de analytics
+  static const bool enableAnalytics = bool.fromEnvironment(
+    'ANALYTICS',
+    defaultValue: false,
+  );
+  static const bool enableCrashlytics = bool.fromEnvironment(
+    'CRASHLYTICS',
+    defaultValue: false,
+  );
+
+  // Configuración de testing
+  static const bool isTesting = bool.fromEnvironment(
+    'TESTING',
+    defaultValue: false,
+  );
+  static const String testApiUrl = 'http://localhost:3001/api';
+
+  // Métodos de utilidad
+  static String getFullUrl(String endpoint) {
+    return '$apiBaseUrl$endpoint';
+  }
+
+  static Map<String, String> getHeaders({String? token}) {
+    final headers = Map<String, String>.from(networkHeaders);
+    if (token != null) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return headers;
+  }
+
+  static bool get isDebugMode => kDebugMode && enableDebugLogs;
+  static bool get isProduction => !isDevelopment;
+  static bool get isTestMode => isTesting;
 }
