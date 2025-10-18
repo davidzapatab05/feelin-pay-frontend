@@ -4,7 +4,7 @@ import '../models/user_model.dart';
 
 /// API Service - Servicio simple para comunicación con backend
 class ApiService {
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'http://localhost:3001/api';
 
   // Headers
   Map<String, String> get _headers => {
