@@ -46,14 +46,11 @@ class ApiService {
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
       print('🔍 [API] Intentando login para: $email');
-      
-      final requestBody = {
-        'email': email.trim(),
-        'password': password,
-      };
-      
+
+      final requestBody = {'email': email.trim(), 'password': password};
+
       print('🔍 [API] Request body: $requestBody');
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
         headers: _headers,
@@ -70,8 +67,8 @@ class ApiService {
       } else {
         print('❌ [API] Error en login: ${response.statusCode}');
         return {
-          'success': false, 
-          'message': 'Error del servidor: ${response.statusCode}'
+          'success': false,
+          'message': 'Error del servidor: ${response.statusCode}',
         };
       }
     } catch (e) {
@@ -90,7 +87,7 @@ class ApiService {
   }) async {
     try {
       print('🔍 [API] Intentando registro para: $email');
-      
+
       final requestBody = {
         'nombre': nombre.trim(),
         'telefono': telefono.trim(),
@@ -98,9 +95,9 @@ class ApiService {
         'password': password,
         'confirmPassword': confirmPassword,
       };
-      
+
       print('🔍 [API] Request body: $requestBody');
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/register'),
         headers: _headers,
@@ -117,8 +114,8 @@ class ApiService {
       } else {
         print('❌ [API] Error en registro: ${response.statusCode}');
         return {
-          'success': false, 
-          'message': 'Error del servidor: ${response.statusCode}'
+          'success': false,
+          'message': 'Error del servidor: ${response.statusCode}',
         };
       }
     } catch (e) {
@@ -145,13 +142,11 @@ class ApiService {
   Future<Map<String, dynamic>> forgotPassword(String email) async {
     try {
       print('🔍 [API] Intentando forgot password para: $email');
-      
-      final requestBody = {
-        'email': email.trim(),
-      };
-      
+
+      final requestBody = {'email': email.trim()};
+
       print('🔍 [API] Request body: $requestBody');
-      
+
       final response = await http.post(
         Uri.parse('$baseUrl/auth/forgot-password'),
         headers: _headers,
@@ -168,8 +163,8 @@ class ApiService {
       } else {
         print('❌ [API] Error en forgot password: ${response.statusCode}');
         return {
-          'success': false, 
-          'message': 'Error del servidor: ${response.statusCode}'
+          'success': false,
+          'message': 'Error del servidor: ${response.statusCode}',
         };
       }
     } catch (e) {

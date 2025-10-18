@@ -7,7 +7,6 @@ class UserModel {
   final String rolId;
   final String? rol;
   final bool activo;
-  final bool licenciaActiva;
   final bool enPeriodoPrueba;
   final int diasPruebaRestantes;
   final bool emailVerificado;
@@ -22,7 +21,6 @@ class UserModel {
     required this.rolId,
     this.rol,
     required this.activo,
-    required this.licenciaActiva,
     required this.enPeriodoPrueba,
     required this.diasPruebaRestantes,
     required this.emailVerificado,
@@ -40,7 +38,6 @@ class UserModel {
       rolId: json['rolId'] ?? '',
       rol: json['rol'],
       activo: json['activo'] ?? false,
-      licenciaActiva: json['licenciaActiva'] ?? false,
       enPeriodoPrueba: json['enPeriodoPrueba'] ?? false,
       diasPruebaRestantes: json['diasPruebaRestantes'] ?? 0,
       emailVerificado: json['emailVerificado'] ?? false,
@@ -62,7 +59,6 @@ class UserModel {
       'email': email,
       'rolId': rolId,
       'activo': activo,
-      'licenciaActiva': licenciaActiva,
       'enPeriodoPrueba': enPeriodoPrueba,
       'diasPruebaRestantes': diasPruebaRestantes,
       'emailVerificado': emailVerificado,
@@ -79,7 +75,6 @@ class UserModel {
     String? email,
     String? rolId,
     bool? activo,
-    bool? licenciaActiva,
     bool? enPeriodoPrueba,
     int? diasPruebaRestantes,
     bool? emailVerificado,
@@ -93,7 +88,6 @@ class UserModel {
       email: email ?? this.email,
       rolId: rolId ?? this.rolId,
       activo: activo ?? this.activo,
-      licenciaActiva: licenciaActiva ?? this.licenciaActiva,
       enPeriodoPrueba: enPeriodoPrueba ?? this.enPeriodoPrueba,
       diasPruebaRestantes: diasPruebaRestantes ?? this.diasPruebaRestantes,
       emailVerificado: emailVerificado ?? this.emailVerificado,
@@ -114,8 +108,8 @@ class UserModel {
   /// Verificar si está en período de prueba
   bool get isInTrial => enPeriodoPrueba && diasPruebaRestantes > 0;
 
-  /// Verificar si la licencia está activa
-  bool get hasActiveLicense => licenciaActiva;
+  /// Verificar si la licencia está activa (ahora basado en membresía)
+  bool get hasActiveLicense => !enPeriodoPrueba;
 
   @override
   bool operator ==(Object other) =>
